@@ -1,0 +1,705 @@
+// 全局状态管理
+let vocabList = [];
+let currentIndex = 0;
+let isFullPaperMode = false;
+let currentDbKey = ""; // 当前文件的本地缓存唯一识别 Key
+
+// 艾宾浩斯时间跨度表 (单位：毫秒)
+const EBB_INTERVALS = [
+  5 * 60 * 1000, // L0 -> L1: 5分钟
+  30 * 60 * 1000, // L1 -> L2: 30分钟
+  12 * 60 * 60 * 1000, // L2 -> L3: 12小时
+  1 * 24 * 60 * 60 * 1000, // L3 -> L4: 1天
+  2 * 24 * 60 * 60 * 1000, // L4 -> L5: 2天
+  4 * 24 * 60 * 60 * 1000, // L5 -> L6: 4天
+  7 * 24 * 60 * 60 * 1000, // L6 -> L7: 7天
+  15 * 24 * 60 * 60 * 1000, // L7 -> L8: 15天
+];
+
+// DOM 节点定义
+const vocabFileInput = document.getElementById("vocabFile");
+const dashboardZone = document.getElementById("dashboardZone");
+const answerCardZone = document.getElementById("answerCardZone");
+const themeToggleBtn = document.getElementById("themeToggleBtn");
+const modeToggle = document.getElementById("modeToggle");
+const exportWrongBtn = document.getElementById("exportWrongBtn");
+const resetBtn = document.getElementById("resetBtn");
+const nextBtn = document.getElementById("nextBtn");
+
+// 音效合成
+const SoundFX = {
+  ctx: null,
+  init() {
+    if (!this.ctx)
+      this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+  },
+  playCorrect() {
+    this.init();
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    const now = this.ctx.currentTime;
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(587.33, now);
+    osc.frequency.setValueAtTime(880.0, now + 0.08);
+    gain.gain.setValueAtTime(0.15, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+    osc.start(now);
+    osc.stop(now + 0.35);
+  },
+  playWrong() {
+    this.init();
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    const now = this.ctx.currentTime;
+    osc.type = "triangle";
+    osc.frequency.setValueAtTime(180.0, now);
+    osc.frequency.linearRampToValueAtTime(110.0, now + 0.25);
+    gain.gain.setValueAtTime(0.2, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+    osc.start(now);
+    osc.stop(now + 0.4);
+  },
+};
+
+// 【核心逻辑】持久化数据保存引擎
+function saveProgressToLocal() {
+  if (!currentDbKey || vocabList.length === 0) return;
+  const stateData = {
+    currentIndex: currentIndex,
+    vocabList: vocabList,
+  };
+  localStorage.setItem(currentDbKey, JSON.stringify(stateData));
+  // 💥 关键修复：记录当前正在使用的题库 Key，供刷新后自动识别恢复
+  localStorage.setItem("EBB_QUIZ_CURRENT_ACTIVE_KEY", currentDbKey);
+}
+
+// 【核心逻辑】持久化数据读取引擎
+function loadProgressFromLocal(fileName, totalCount) {
+  // 根据文件名和总题数组合成唯一标识，防止不同题库数据串流
+  currentDbKey = `EBB_DATA_${fileName}_${totalCount}`;
+  const localData = localStorage.getItem(currentDbKey);
+
+  if (localData) {
+    try {
+      const parsed = JSON.parse(localData);
+      currentIndex = parsed.currentIndex || 0;
+      return parsed.vocabList;
+    } catch (e) {
+      console.error("读取存档失败，数据损坏：", e);
+      return null;
+    }
+  }
+  return null;
+}
+
+// 多标签页多维跳转切换中心
+document.querySelectorAll(".tab-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document
+      .querySelectorAll(".tab-btn")
+      .forEach((b) => b.classList.remove("active"));
+    document
+      .querySelectorAll(".tab-content")
+      .forEach((c) => c.classList.remove("active"));
+
+    btn.classList.add("active");
+    const targetTab = btn.getAttribute("data-tab");
+    document.getElementById(targetTab).classList.add("active");
+
+    document.getElementById("modeSwitchBox").style.display =
+      targetTab === "quizTab" ? "flex" : "none";
+
+    if (vocabList.length > 0) {
+      if (targetTab === "analysisTab") runDataAnalysis();
+      if (targetTab === "ebbinghausTab") renderEbbinghausView();
+    }
+  });
+});
+
+// 主题处理
+function initTheme() {
+  const savedTheme = localStorage.getItem("theme") || "light";
+  document.documentElement.setAttribute("data-theme", savedTheme);
+  themeToggleBtn.innerHTML =
+    savedTheme === "dark" ? "<span>☀️</span>" : "<span>🌙</span>";
+}
+themeToggleBtn.addEventListener("click", () => {
+  const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+  const nextTheme = isDark ? "light" : "dark";
+  document.documentElement.setAttribute("data-theme", nextTheme);
+  themeToggleBtn.innerHTML =
+    nextTheme === "dark" ? "<span>☀️</span>" : "<span>🌙</span>";
+  localStorage.setItem("theme", nextTheme);
+});
+initTheme();
+
+modeToggle.addEventListener("change", (e) => {
+  isFullPaperMode = e.target.checked;
+  if (vocabList.length > 0) renderQuizZone();
+});
+
+// 选择文件一键全自动导入（加入智能读档）
+vocabFileInput.addEventListener("change", async () => {
+  if (!vocabFileInput.files.length) return;
+  SoundFX.init();
+
+  const file = vocabFileInput.files[0];
+  const rawList = await parseNewFormatFile(file);
+  if (rawList.length === 0) {
+    alert("文件格式不正确，解析失败！");
+    return;
+  }
+
+  // 尝试读取本地历史记录
+  const savedList = loadProgressFromLocal(file.name, rawList.length);
+  if (savedList) {
+    vocabList = savedList;
+    // 智能提醒
+    const answeredCount = vocabList.filter(
+      (i) => i.userStatus !== "unanswered",
+    ).length;
+    console.log(`成功恢复历史答题记录！已答：${answeredCount} 题`);
+  } else {
+    vocabList = rawList;
+    currentIndex = 0;
+  }
+
+  dashboardZone.style.opacity = "1";
+  dashboardZone.style.pointerEvents = "auto";
+  answerCardZone.style.opacity = "1";
+  answerCardZone.style.pointerEvents = "auto";
+  exportWrongBtn.disabled = false;
+  resetBtn.disabled = false;
+
+  renderDashboard();
+  renderAnswerCard();
+  renderQuizZone();
+  saveProgressToLocal(); // 存储初始化状态
+});
+
+function parseNewFormatFile(file) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const lines = e.target.result.split(/\r?\n/);
+      const list = lines
+        .map((line, index) => {
+          if (!line.trim()) return null;
+          const parts = line.split("|").map((p) => p.trim());
+          if (parts.length === 6) {
+            const ansKey = parts[5].toUpperCase();
+            let correctText = parts[5];
+            if (ansKey === "A") correctText = parts[1];
+            else if (ansKey === "B") correctText = parts[2];
+            else if (ansKey === "C") correctText = parts[3];
+            else if (ansKey === "D") correctText = parts[4];
+
+            return {
+              id: index + 1,
+              word: parts[0],
+              answer: correctText,
+              options: [parts[1], parts[2], parts[3], parts[4]],
+              rawOptions: [parts[1], parts[2], parts[3], parts[4]],
+              errorCount: 0,
+              stage: 0,
+              userStatus: "unanswered",
+              selectedAnswer: null,
+              nextReviewTime: 0,
+            };
+          }
+          return null;
+        })
+        .filter((item) => item !== null);
+      resolve(list);
+    };
+    reader.readAsText(file, "UTF-8");
+  });
+}
+
+// 渲染今日刷题主视图面板
+function renderQuizZone() {
+  const dynamicContent = document.getElementById("quizDynamicContent");
+  if (vocabList.length === 0) return;
+
+  if (isFullPaperMode) {
+    document.getElementById("progressContainer").style.display = "none";
+    document.getElementById("quizHeader").style.display = "none";
+    nextBtn.style.display = "none";
+    dynamicContent.innerHTML = "";
+    dynamicContent.classList.add("full-paper-scroll");
+
+    vocabList.forEach((item, index) => {
+      const block = document.createElement("div");
+      block.className = `paper-item-block ${item.userStatus}`;
+      block.id = `paper-q-${index}`;
+      if (index === currentIndex) block.classList.add("focused-item");
+
+      const title = document.createElement("div");
+      title.className = "paper-item-title";
+      title.innerText = `${item.id}. ${item.word} [级别: L${item.stage}]`;
+
+      const grid = document.createElement("div");
+      grid.className = "options-grid";
+
+      item.options.forEach((option) => {
+        const btn = document.createElement("button");
+        btn.className = "opt-btn";
+        btn.innerText = option;
+        if (item.userStatus !== "unanswered") {
+          btn.disabled = true;
+          if (option === item.answer) btn.classList.add("correct");
+          if (option === item.selectedAnswer && option !== item.answer)
+            btn.classList.add("wrong");
+        } else {
+          btn.onclick = () => handleAnswerCore(index, btn, option, true);
+        }
+        grid.appendChild(btn);
+      });
+
+      const feed = document.createElement("div");
+      feed.className = "feedback-msg";
+      if (item.userStatus === "correct") {
+        feed.innerText = "🎉 回答正确！";
+        feed.style.color = "var(--success-text)";
+      } else if (item.userStatus === "wrong") {
+        feed.innerText = `❌ 正确答案是：${item.answer}`;
+        feed.style.color = "var(--danger-text)";
+      }
+
+      block.appendChild(title);
+      block.appendChild(grid);
+      block.appendChild(feed);
+      dynamicContent.appendChild(block);
+    });
+  } else {
+    document.getElementById("progressContainer").style.display = "block";
+    document.getElementById("quizHeader").style.display = "flex";
+    dynamicContent.classList.remove("full-paper-scroll");
+    dynamicContent.innerHTML = `<div class="word-display" id="wordDisplay"></div><div class="options-grid" id="optionsGrid"></div><div id="feedback" class="feedback-msg"></div>`;
+
+    if (currentIndex >= vocabList.length) {
+      alert("🎉 当前所有题目已练习完！");
+      currentIndex = vocabList.length - 1;
+    }
+
+    const item = vocabList[currentIndex];
+    document.getElementById("quizIndex").innerText =
+      `题目：${currentIndex + 1} / ${vocabList.length}`;
+    document.getElementById("wordStage").innerText = `熟练度: L${item.stage}`;
+    document.getElementById("progressBar").style.width =
+      `${((currentIndex + 1) / vocabList.length) * 100}%`;
+    document.getElementById("wordDisplay").innerText = item.word;
+
+    const grid = document.getElementById("optionsGrid");
+    item.options.forEach((option) => {
+      const btn = document.createElement("button");
+      btn.className = "opt-btn";
+      btn.innerText = option;
+      if (item.userStatus !== "unanswered") {
+        btn.disabled = true;
+        if (option === item.answer) btn.classList.add("correct");
+        if (option === item.selectedAnswer && option !== item.answer)
+          btn.classList.add("wrong");
+        nextBtn.style.display = "block";
+        const feed = document.getElementById("feedback");
+        feed.innerText =
+          item.userStatus === "correct"
+            ? "🎉 回答正确！"
+            : `❌ 正确答案：${item.answer}`;
+        feed.style.color =
+          item.userStatus === "correct"
+            ? "var(--success-text)"
+            : "var(--danger-text)";
+      } else {
+        btn.onclick = () => handleAnswerCore(currentIndex, btn, option, false);
+        nextBtn.style.display = "none";
+      }
+      grid.appendChild(btn);
+    });
+  }
+  renderAnswerCard();
+}
+
+// 统一核心答题触发并自动触发持久化存档
+function handleAnswerCore(index, btn, selectedOpt, isPaper) {
+  const item = vocabList[index];
+  item.selectedAnswer = selectedOpt;
+  const now = Date.now();
+
+  if (selectedOpt === item.answer) {
+    item.userStatus = "correct";
+    if (item.stage < 8) item.stage++;
+    const interval =
+      EBB_INTERVALS[item.stage - 1] || EBB_INTERVALS[EBB_INTERVALS.length - 1];
+    item.nextReviewTime = now + interval;
+    SoundFX.playCorrect();
+  } else {
+    item.userStatus = "wrong";
+    item.errorCount++;
+    item.stage = 0;
+    item.nextReviewTime = now + EBB_INTERVALS[0];
+    SoundFX.playWrong();
+  }
+
+  if (isPaper) currentIndex = index;
+  renderQuizZone();
+  renderDashboard();
+  saveProgressToLocal(); // 💥【关键改动】只要用户答题，实时无缝存盘
+}
+
+nextBtn.addEventListener("click", () => {
+  currentIndex++;
+  renderQuizZone();
+  saveProgressToLocal(); // 切换题目也进行存盘
+});
+
+function renderAnswerCard() {
+  const grid = document.getElementById("answerCardGrid");
+  grid.innerHTML = "";
+  vocabList.forEach((item, index) => {
+    const itemBtn = document.createElement("div");
+    itemBtn.className = `answer-item ${item.userStatus}`;
+    if (index === currentIndex) itemBtn.classList.add("active");
+    itemBtn.innerText = item.id;
+    itemBtn.onclick = () => {
+      currentIndex = index;
+      renderQuizZone();
+      if (isFullPaperMode) {
+        const target = document.getElementById(`paper-q-${index}`);
+        if (target)
+          target.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+      saveProgressToLocal();
+    };
+    grid.appendChild(itemBtn);
+  });
+}
+
+function renderDashboard() {
+  const tbody = document.getElementById("dashboardBody");
+  tbody.innerHTML = "";
+  vocabList.forEach((item) => {
+    const tr = document.createElement("tr");
+    if (item.errorCount > 2) tr.className = "high-error-row";
+    tr.innerHTML = `
+            <td>${item.id}</td>
+            <td style="max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"><strong>${item.word}</strong></td>
+            <td>${item.answer.substring(0, 10)}</td>
+            <td style="color:${item.errorCount > 0 ? "var(--danger-text)" : "var(--text-muted)"}; font-weight:bold">${item.errorCount}</td>
+            <td><span class="badge">L${item.stage}</span></td>
+        `;
+    tbody.appendChild(tr);
+  });
+}
+
+// 数据多维分析引擎
+function runDataAnalysis() {
+  const total = vocabList.length;
+  const answered = vocabList.filter(
+    (i) => i.userStatus !== "unanswered",
+  ).length;
+  const correctNum = vocabList.filter((i) => i.userStatus === "correct").length;
+  const acc = answered > 0 ? Math.round((correctNum / answered) * 100) : 0;
+
+  const now = Date.now();
+  const forgetWarnings = vocabList.filter(
+    (i) => i.nextReviewTime > 0 && now >= i.nextReviewTime,
+  ).length;
+
+  document.getElementById("statTotal").innerText = total;
+  document.getElementById("statAnswered").innerText = answered;
+  document.getElementById("statAccuracy").innerText = `${acc}%`;
+  document.getElementById("statForgetWarning").innerText = forgetWarnings;
+
+  const stageCounts = [0, 0, 0, 0];
+  vocabList.forEach((i) => {
+    if (i.stage === 0) stageCounts[0]++;
+    else if (i.stage === 1) stageCounts[1]++;
+    else if (i.stage === 2) stageCounts[2]++;
+    else stageCounts[3]++;
+  });
+
+  const distList = document.getElementById("stageDistributionList");
+  distList.innerHTML = "";
+  const labels = [
+    "入门起点 L0 (刚刷/错题)",
+    "初学记忆 L1 (5-30分级)",
+    "稳固阶段 L2 (半天冷却)",
+    "熟练精通 L3+ (跨天记忆)",
+  ];
+
+  stageCounts.forEach((count, idx) => {
+    const pct = total > 0 ? (count / total) * 100 : 0;
+    const row = document.createElement("div");
+    row.className = "chart-progress-row";
+    row.innerHTML = `
+            <div class="label-txt"><span>${labels[idx]}</span> <strong>${count} 题</strong></div>
+            <div class="bar-outer"><div class="bar-inner" style="width: ${pct}%; background: var(--primary)"></div></div>
+        `;
+    distList.appendChild(row);
+  });
+
+  const topWrong = [...vocabList]
+    .filter((i) => i.errorCount > 0)
+    .sort((a, b) => b.errorCount - a.errorCount)
+    .slice(0, 5);
+  const topBody = document.getElementById("topWrongBody");
+  topBody.innerHTML = "";
+  if (topWrong.length === 0) {
+    topBody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--text-muted);">暂无错题上榜</td></tr>`;
+  } else {
+    topWrong.forEach((item) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td>${item.id}</td><td>${item.word}</td><td style="color:var(--danger-text); font-weight:bold">${item.errorCount} 次</td><td><span class="badge">L${item.stage}</span></td>`;
+      topBody.appendChild(tr);
+    });
+  }
+}
+
+// 艾宾浩斯智能复习管理器
+let currentReviewIndexList = [];
+let currentReviewPointer = 0;
+
+function renderEbbinghausView() {
+  const container = document.getElementById("ebbStageContainer");
+  container.innerHTML = "";
+
+  const now = Date.now();
+  const activeItems = vocabList.filter((i) => i.nextReviewTime > 0);
+
+  if (activeItems.length === 0) {
+    container.innerHTML = `<p style="color:var(--text-muted); text-align:center; padding:20px;">题库空空如也，赶快进入第一页刷题激活记忆曲线吧！</p>`;
+    return;
+  }
+
+  const expiredItems = activeItems.filter((i) => now >= i.nextReviewTime);
+  const waitingItems = activeItems
+    .filter((i) => now < i.nextReviewTime)
+    .sort((a, b) => a.nextReviewTime - b.nextReviewTime);
+
+  if (expiredItems.length > 0) {
+    const block = document.createElement("div");
+    block.className = "ebb-timeline-node expired";
+    block.innerHTML = `<h4>🚨 应当马上复习 (${expiredItems.length} 题已超出临界点)</h4><p>记忆处于极度模糊状态，请立刻点击右侧进行紧急深度特训！</p>`;
+    container.appendChild(block);
+  }
+
+  waitingItems.forEach((item) => {
+    const node = document.createElement("div");
+    node.className = "ebb-timeline-node";
+    const remainSec = Math.round((item.nextReviewTime - now) / 1000);
+    let timeStr = `${remainSec} 秒`;
+    if (remainSec > 60) timeStr = `${Math.round(remainSec / 60)} 分钟`;
+    if (remainSec > 3600) timeStr = `${Math.round(remainSec / 3600)} 小时`;
+    if (remainSec > 86400) timeStr = `${Math.round(remainSec / 86400)} 天`;
+
+    node.innerHTML = `<div class="node-time">⏳ 剩余约 ${timeStr} 后到期</div><div class="node-desc">第 <strong>${item.id}</strong> 题：${item.word.substring(0, 30)}... [当前熟练度: L${item.stage}]</div>`;
+    container.appendChild(node);
+  });
+
+  initReviewEngine(expiredItems);
+}
+
+function initReviewEngine(expiredItems) {
+  const statusBar = document.getElementById("reviewStatusBar");
+  const zone = document.getElementById("ebbReviewZone");
+
+  if (expiredItems.length === 0) {
+    statusBar.innerText =
+      "🎉 太棒了！当前没有任何题目处于遗忘区，记忆状态极佳！";
+    statusBar.className = "review-status-bar safe";
+    zone.style.display = "none";
+    return;
+  }
+
+  statusBar.innerText = `🔥 警告！当前有 ${expiredItems.length} 道题已达临界点，正在进入复习舱。`;
+  statusBar.className = "review-status-bar danger";
+  zone.style.display = "block";
+
+  currentReviewIndexList = expiredItems.map((item) =>
+    vocabList.findIndex((v) => v.id === item.id),
+  );
+  currentReviewPointer = 0;
+  loadReviewQuestion();
+}
+
+function loadReviewQuestion() {
+  if (currentReviewPointer >= currentReviewIndexList.length) {
+    alert("✨ 恭喜！当前批次的错题/到期复习题目已全部剿灭！");
+    renderEbbinghausView();
+    return;
+  }
+
+  const mainIdx = currentReviewIndexList[currentReviewPointer];
+  const item = vocabList[mainIdx];
+
+  document.getElementById("ebbFeedback").innerText = "";
+  document.getElementById("ebbNextBtn").style.display = "none";
+  document.getElementById("ebbWordDisplay").innerText =
+    `【复习第 ${item.id} 题】 ${item.word}`;
+
+  const grid = document.getElementById("ebbOptionsGrid");
+  grid.innerHTML = "";
+
+  item.options.forEach((option) => {
+    const btn = document.createElement("button");
+    btn.className = "opt-btn";
+    btn.innerText = option;
+    btn.onclick = () => {
+      const buttons = grid.querySelectorAll(".opt-btn");
+      buttons.forEach((b) => (b.disabled = true));
+      const feed = document.getElementById("ebbFeedback");
+
+      if (option === item.answer) {
+        btn.classList.add("correct");
+        feed.innerText = "🎉 复习成功！记忆评级已升级提升。";
+        feed.style.color = "var(--success-text)";
+        if (item.stage < 8) item.stage++;
+        item.nextReviewTime =
+          Date.now() +
+          (EBB_INTERVALS[item.stage - 1] ||
+            EBB_INTERVALS[EBB_INTERVALS.length - 1]);
+        item.userStatus = "correct";
+        SoundFX.playCorrect();
+      } else {
+        btn.classList.add("wrong");
+        feed.innerText = `❌ 复习再次犯错！惩罚降回L0，5分钟后重新排队。 正确答案是：${item.answer}`;
+        feed.style.color = "var(--danger-text)";
+        item.stage = 0;
+        item.errorCount++;
+        item.nextReviewTime = Date.now() + EBB_INTERVALS[0];
+        item.userStatus = "wrong";
+        buttons.forEach((b) => {
+          if (b.innerText === item.answer) b.classList.add("correct");
+        });
+        SoundFX.playWrong();
+      }
+      document.getElementById("ebbNextBtn").style.display = "block";
+      renderDashboard();
+      saveProgressToLocal(); // 复习答题也进行数据同步保存
+    };
+    grid.appendChild(btn);
+  });
+}
+
+document.getElementById("ebbNextBtn").addEventListener("click", () => {
+  currentReviewPointer++;
+  loadReviewQuestion();
+});
+
+// 每3秒自循环轮询
+function startEbbTimer() {
+  setInterval(() => {
+    if (
+      vocabList.length > 0 &&
+      document.getElementById("ebbinghausTab").classList.contains("active")
+    ) {
+      renderEbbinghausView();
+    }
+  }, 3000);
+}
+startEbbTimer(); // 默认允许底层轮询准备
+
+// 导出与备份
+exportWrongBtn.addEventListener("click", () => {
+  const wrong = vocabList.filter((i) => i.errorCount > 0);
+  if (!wrong.length) {
+    alert("无错题记录。");
+    return;
+  }
+  const out = wrong
+    .map(
+      (i) =>
+        `${i.word}|${i.rawOptions[0]}|${i.rawOptions[1]}|${i.rawOptions[2]}|${i.rawOptions[3]}|${i.answer}`,
+    )
+    .join("\n");
+  const blob = new Blob([out], { type: "text/plain;charset=utf-8;" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = `错题集_${new Date().toLocaleDateString()}.txt`;
+  link.click();
+});
+
+// 重置功能（同步清除本地存储）
+resetBtn.addEventListener("click", () => {
+  if (
+    !vocabList.length ||
+    !confirm("确定重置吗？这将清空当前文件的所有本地作答及遗忘曲线历史！")
+  )
+    return;
+  currentIndex = 0;
+  vocabList.forEach((i) => {
+    i.errorCount = 0;
+    i.stage = 0;
+    i.userStatus = "unanswered";
+    i.selectedAnswer = null;
+    i.nextReviewTime = 0;
+  });
+
+  if (currentDbKey) {
+    localStorage.removeItem(currentDbKey); // 清除该题库对应的缓存
+  }
+  // 💥 关键修复：同时移除当前活跃标记，让页面回归初始待上传状态
+  localStorage.removeItem("EBB_QUIZ_CURRENT_ACTIVE_KEY");
+
+  // 清空文件选择框的残留
+  vocabFileInput.value = "";
+
+  // 让界面重新变回初始灰色状态
+  dashboardZone.style.opacity = "0.4";
+  dashboardZone.style.pointerEvents = "none";
+  answerCardZone.style.opacity = "0.4";
+  answerCardZone.style.pointerEvents = "none";
+  exportWrongBtn.disabled = true;
+  resetBtn.disabled = true;
+  document.getElementById("quizDynamicContent").innerHTML =
+    `<div class="word-display" id="wordDisplay">请在右侧上传一体化题库文件即可开始...</div><div class="options-grid" id="optionsGrid"></div><div id="feedback" class="feedback-msg"></div>`;
+  document.getElementById("progressBar").style.width = `0%`;
+  document.getElementById("quizIndex").innerText = `题目：0 / 0`;
+
+  alert("当前进度已完全重置，已退回到初始状态。");
+});
+// 💥【新增核心】页面刷新/初始化时，全自动静默恢复上次的刷题现场
+function autoRecoverOnRefresh() {
+  const activeKey = localStorage.getItem("EBB_QUIZ_CURRENT_ACTIVE_KEY");
+  if (!activeKey) return; // 如果以前没上传过文件，或者被重置了，则不处理
+
+  const localData = localStorage.getItem(activeKey);
+  if (localData) {
+    try {
+      const parsed = JSON.parse(localData);
+      if (parsed && parsed.vocabList && parsed.vocabList.length > 0) {
+        // 恢复全局状态
+        currentDbKey = activeKey;
+        vocabList = parsed.vocabList;
+        currentIndex = parsed.currentIndex || 0;
+
+        // 激活并解锁界面卡片
+        dashboardZone.style.opacity = "1";
+        dashboardZone.style.pointerEvents = "auto";
+        answerCardZone.style.opacity = "1";
+        answerCardZone.style.pointerEvents = "auto";
+        exportWrongBtn.disabled = false;
+        resetBtn.disabled = false;
+
+        // 重新渲染全部视图
+        renderDashboard();
+        renderAnswerCard();
+        renderQuizZone();
+
+        console.log(
+          `[自动续刷成功] 已为您无缝恢复至上次进度，当前位置：第 ${currentIndex + 1} 题。`,
+        );
+      }
+    } catch (e) {
+      console.error("全自动读档失败，缓存可能损坏：", e);
+    }
+  }
+}
+
+// 确保 DOM 树加载完毕后，立刻执行现场恢复
+window.addEventListener("DOMContentLoaded", autoRecoverOnRefresh);
