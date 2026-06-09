@@ -65,33 +65,52 @@ const SoundFX = {
   },
 };
 
-// 【核心逻辑】持久化数据保存引擎
+// 【升级版：核心逻辑】全局单词共享持久化保存引擎
 function saveProgressToLocal() {
   if (!currentDbKey || vocabList.length === 0) return;
-  const stateData = {
+
+  // 1. 💥【修复刷新BUG的关键】不仅存索引，把当前文件的完整词表数据和特征一并打包存入
+  const fileState = {
     currentIndex: currentIndex,
-    vocabList: vocabList,
+    savedVocabList: vocabList, // 将带有当前状态的词表全量备份，供刷新后瞬时恢复
   };
-  localStorage.setItem(currentDbKey, JSON.stringify(stateData));
-  // 💥 关键修复：记录当前正在使用的题库 Key，供刷新后自动识别恢复
+  localStorage.setItem(currentDbKey, JSON.stringify(fileState));
   localStorage.setItem("EBB_QUIZ_CURRENT_ACTIVE_KEY", currentDbKey);
+
+  // 2. 💥【跨题库核心】将每个单词的“记忆曲线数据”独立剥离，存储到全局单词本中
+  vocabList.forEach((item) => {
+    // 使用单词本身作为全局唯一 Key
+    const globalWordKey = `EBB_WORD_CORE_${item.word.trim()}`;
+    const wordMemory = {
+      errorCount: item.errorCount,
+      stage: item.stage,
+      userStatus: item.userStatus,
+      selectedAnswer: item.selectedAnswer,
+      nextReviewTime: item.nextReviewTime,
+    };
+    localStorage.setItem(globalWordKey, JSON.stringify(wordMemory));
+  });
 }
 
-// 【核心逻辑】持久化数据读取引擎
+// 【升级版：核心逻辑】全局单词共享持久化读取引擎
 function loadProgressFromLocal(fileName, totalCount) {
-  // 根据文件名和总题数组合成唯一标识，防止不同题库数据串流
   currentDbKey = `EBB_DATA_${fileName}_${totalCount}`;
-  const localData = localStorage.getItem(currentDbKey);
 
-  if (localData) {
+  // 1. 先尝试读取该文件的进度（第几题）
+  const localFileState = localStorage.getItem(currentDbKey);
+  if (localFileState) {
     try {
-      const parsed = JSON.parse(localData);
+      const parsed = JSON.parse(localFileState);
       currentIndex = parsed.currentIndex || 0;
-      return parsed.vocabList;
+      // 如果已经有缓存的词表，直接返回，供外部恢复
+      if (parsed.savedVocabList && parsed.savedVocabList.length > 0) {
+        return parsed.savedVocabList;
+      }
     } catch (e) {
-      console.error("读取存档失败，数据损坏：", e);
-      return null;
+      console.error("读取文件进度失败：", e);
     }
+  } else {
+    currentIndex = 0; // 新文件从第 0 题开始
   }
   return null;
 }
@@ -137,36 +156,51 @@ themeToggleBtn.addEventListener("click", () => {
 });
 initTheme();
 
-modeToggle.addEventListener("change", (e) => {
-  isFullPaperMode = e.target.checked;
-  if (vocabList.length > 0) renderQuizZone();
-});
-
-// 选择文件一键全自动导入（加入智能读档）
+// 选择文件一键全自动导入（融合全局单词记忆）
 vocabFileInput.addEventListener("change", async () => {
   if (!vocabFileInput.files.length) return;
   SoundFX.init();
 
   const file = vocabFileInput.files[0];
+
+  // 💥【新增联动】选中文件后动态把文件名同步写到精美的按钮卡片上，并变成高亮绿色
+  const fileStatusText = document.getElementById("fileStatusText");
+  if (fileStatusText) {
+    fileStatusText.innerText = file.name;
+    fileStatusText.style.color = "var(--success-text)";
+  }
+
   const rawList = await parseNewFormatFile(file);
   if (rawList.length === 0) {
     alert("文件格式不正确，解析失败！");
     return;
   }
 
-  // 尝试读取本地历史记录
-  const savedList = loadProgressFromLocal(file.name, rawList.length);
-  if (savedList) {
-    vocabList = savedList;
-    // 智能提醒
-    const answeredCount = vocabList.filter(
-      (i) => i.userStatus !== "unanswered",
-    ).length;
-    console.log(`成功恢复历史答题记录！已答：${answeredCount} 题`);
-  } else {
-    vocabList = rawList;
-    currentIndex = 0;
-  }
+  // 触发读档（获取当前文件的 currentIndex 进度）
+  loadProgressFromLocal(file.name, rawList.length);
+
+  // 💥【跨题库核心】遍历新文件里的所有单词，去全局本地存储里撞库，匹配历史记忆
+  vocabList = rawList.map((item) => {
+    const globalWordKey = `EBB_WORD_CORE_${item.word.trim()}`;
+    const savedMemory = localStorage.getItem(globalWordKey);
+    if (savedMemory) {
+      try {
+        const memory = JSON.parse(savedMemory);
+        // 如果这个单词以前背过，无缝继承它的熟练度、错题数和下一次复习时间！
+        return {
+          ...item,
+          errorCount: memory.errorCount || 0,
+          stage: memory.stage || 0,
+          userStatus: memory.userStatus || "unanswered",
+          selectedAnswer: memory.selectedAnswer || null,
+          nextReviewTime: memory.nextReviewTime || 0,
+        };
+      } catch (e) {
+        console.error("融合单词历史失败：", e);
+      }
+    }
+    return item; // 没背过的单词保持全新状态
+  });
 
   dashboardZone.style.opacity = "1";
   dashboardZone.style.pointerEvents = "auto";
@@ -178,7 +212,58 @@ vocabFileInput.addEventListener("change", async () => {
   renderDashboard();
   renderAnswerCard();
   renderQuizZone();
-  saveProgressToLocal(); // 存储初始化状态
+  saveProgressToLocal(); // 同步一次最新现场
+});
+
+// 选择文件一键全自动导入（融合全局单词记忆）
+vocabFileInput.addEventListener("change", async () => {
+  if (!vocabFileInput.files.length) return;
+  SoundFX.init();
+
+  const file = vocabFileInput.files[0];
+  const rawList = await parseNewFormatFile(file);
+  if (rawList.length === 0) {
+    alert("文件格式不正确，解析失败！");
+    return;
+  }
+
+  // 触发读档（获取当前文件的 currentIndex 进度）
+  loadProgressFromLocal(file.name, rawList.length);
+
+  // 💥【跨题库核心】遍历新文件里的所有单词，去全局本地存储里撞库，匹配历史记忆
+  vocabList = rawList.map((item) => {
+    const globalWordKey = `EBB_WORD_CORE_${item.word.trim()}`;
+    const savedMemory = localStorage.getItem(globalWordKey);
+    if (savedMemory) {
+      try {
+        const memory = JSON.parse(savedMemory);
+        // 如果这个单词以前背过，无缝继承它的熟练度、错题数和下一次复习时间！
+        return {
+          ...item,
+          errorCount: memory.errorCount || 0,
+          stage: memory.stage || 0,
+          userStatus: memory.userStatus || "unanswered",
+          selectedAnswer: memory.selectedAnswer || null,
+          nextReviewTime: memory.nextReviewTime || 0,
+        };
+      } catch (e) {
+        console.error("融合单词历史失败：", e);
+      }
+    }
+    return item; // 没背过的单词保持全新状态
+  });
+
+  dashboardZone.style.opacity = "1";
+  dashboardZone.style.pointerEvents = "auto";
+  answerCardZone.style.opacity = "1";
+  answerCardZone.style.pointerEvents = "auto";
+  exportWrongBtn.disabled = false;
+  resetBtn.disabled = false;
+
+  renderDashboard();
+  renderAnswerCard();
+  renderQuizZone();
+  saveProgressToLocal(); // 同步一次最新现场
 });
 
 function parseNewFormatFile(file) {
@@ -220,12 +305,13 @@ function parseNewFormatFile(file) {
   });
 }
 
-// 渲染今日刷题主视图面板
+// 渲染今日刷题主视图面板（包含单题/全卷模式切换、熟练度徽章彩虹变色逻辑）
 function renderQuizZone() {
   const dynamicContent = document.getElementById("quizDynamicContent");
   if (vocabList.length === 0) return;
 
   if (isFullPaperMode) {
+    // ==================== 【全卷模式】 ====================
     document.getElementById("progressContainer").style.display = "none";
     document.getElementById("quizHeader").style.display = "none";
     nextBtn.style.display = "none";
@@ -276,6 +362,7 @@ function renderQuizZone() {
       dynamicContent.appendChild(block);
     });
   } else {
+    // ==================== 【单题模式】 ====================
     document.getElementById("progressContainer").style.display = "block";
     document.getElementById("quizHeader").style.display = "flex";
     dynamicContent.classList.remove("full-paper-scroll");
@@ -289,7 +376,14 @@ function renderQuizZone() {
     const item = vocabList[currentIndex];
     document.getElementById("quizIndex").innerText =
       `题目：${currentIndex + 1} / ${vocabList.length}`;
-    document.getElementById("wordStage").innerText = `熟练度: L${item.stage}`;
+
+    // 💥【核心美化联动】动态更新熟练度徽章的文字和渐变色 CSS 类名（注入 stage-0 到 stage-8）
+    const stageBadge = document.getElementById("wordStage");
+    if (stageBadge) {
+      stageBadge.innerText = `熟练度: L${item.stage}`;
+      stageBadge.className = `badge stage-${item.stage}`; // 触发 style.css 中的彩虹渐变背景
+    }
+
     document.getElementById("progressBar").style.width =
       `${((currentIndex + 1) / vocabList.length) * 100}%`;
     document.getElementById("wordDisplay").innerText = item.word;
@@ -663,22 +757,40 @@ resetBtn.addEventListener("click", () => {
 
   alert("当前进度已完全重置，已退回到初始状态。");
 });
-// 💥【新增核心】页面刷新/初始化时，全自动静默恢复上次的刷题现场
+// 💥【终极修复】页面刷新时，全自动静默恢复上次的刷题现场、题目列表以及所有的看板界面
 function autoRecoverOnRefresh() {
   const activeKey = localStorage.getItem("EBB_QUIZ_CURRENT_ACTIVE_KEY");
-  if (!activeKey) return; // 如果以前没上传过文件，或者被重置了，则不处理
+  if (!activeKey) return;
 
   const localData = localStorage.getItem(activeKey);
   if (localData) {
     try {
       const parsed = JSON.parse(localData);
-      if (parsed && parsed.vocabList && parsed.vocabList.length > 0) {
-        // 恢复全局状态
-        currentDbKey = activeKey;
-        vocabList = parsed.vocabList;
-        currentIndex = parsed.currentIndex || 0;
 
-        // 激活并解锁界面卡片
+      // 检查是否有备份的题目列表
+      if (parsed && parsed.savedVocabList && parsed.savedVocabList.length > 0) {
+        // 1. 恢复全局状态核心变量
+        currentDbKey = activeKey;
+        currentIndex = parsed.currentIndex || 0;
+        vocabList = parsed.savedVocabList;
+
+        // 💥【新增联动】从本地缓存 Key（例如 EBB_DATA_高考核心题库.txt_200）中完美解析并还原出文件名
+        const fileStatusText = document.getElementById("fileStatusText");
+        if (fileStatusText && activeKey.startsWith("EBB_DATA_")) {
+          // 截取 EBB_DATA_ 到倒数第二个下划线之间的文件名部分
+          const prefixLen = "EBB_DATA_".length;
+          const lastUnderscoreIndex = activeKey.lastIndexOf("_");
+          if (lastUnderscoreIndex > prefixLen) {
+            const recoveredFileName = activeKey.substring(
+              prefixLen,
+              lastUnderscoreIndex,
+            );
+            fileStatusText.innerText = recoveredFileName;
+            fileStatusText.style.color = "var(--success-text)";
+          }
+        }
+
+        // 2. 解锁被禁用的界面元素，恢复可见度与点击
         dashboardZone.style.opacity = "1";
         dashboardZone.style.pointerEvents = "auto";
         answerCardZone.style.opacity = "1";
@@ -686,17 +798,17 @@ function autoRecoverOnRefresh() {
         exportWrongBtn.disabled = false;
         resetBtn.disabled = false;
 
-        // 重新渲染全部视图
+        // 3. 重新渲染整个页面的所有视图
         renderDashboard();
         renderAnswerCard();
         renderQuizZone();
 
         console.log(
-          `[自动续刷成功] 已为您无缝恢复至上次进度，当前位置：第 ${currentIndex + 1} 题。`,
+          `[自动续刷成功] 完美恢复现场！上次停留在第 ${currentIndex + 1} 题。`,
         );
       }
     } catch (e) {
-      console.error("全自动读档失败，缓存可能损坏：", e);
+      console.error("全自动刷新恢复现场失败：", e);
     }
   }
 }
