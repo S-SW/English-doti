@@ -281,12 +281,12 @@ a.tab-btn {
 }
 
 /* ==========================================================================
-   ✨ 单题模式【上一题/下一题】贴近选项下方的新增控制组样式
+   单题模式【上一题/下一题】控制组样式
    ========================================================================== */
 .nav-btn-group {
   display: flex;
   gap: 10px;
-  margin-top: 6px; /* 紧贴反馈区域与选项下方 */
+  margin-top: 6px;
   width: 100%;
 }
 
@@ -325,25 +325,28 @@ a.tab-btn {
 .right-panel {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
   height: 100%;
   min-height: 0;
 }
+
 .upload-section {
   flex-shrink: 0;
+  padding: 10px 14px;
 }
+
+/* 1. 答题卡占用主要伸缩空间 */
 .answer-card-zone {
-  flex: 0.8;
+  flex: 1;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
-.dashboard-zone {
-  flex: 1.2;
-  min-height: 0;
-}
+
 .right-panel h3,
 .card h3 {
-  margin: 0 0 8px 0;
-  font-size: 14px;
+  margin: 0 0 6px 0;
+  font-size: 13px;
   border-left: 4px solid var(--primary);
   padding-left: 6px;
 }
@@ -380,14 +383,44 @@ a.tab-btn {
   box-shadow: 0 0 0 2px var(--primary);
 }
 .answer-item.correct {
-    background-color: #426a57 !important;
-    border-color: #48a578 !important;
-    color: white !important;
+  background-color: #426a57 !important;
+  border-color: #48a578 !important;
+  color: white !important;
 }
 .answer-item.wrong {
-    background-color: #ec5353b0 !important;
-    border-color: #ff5252a3 !important;
-    color: white !important;
+  background-color: #ec5353b0 !important;
+  border-color: #ff5252a3 !important;
+  color: white !important;
+}
+
+/* 2. 复习预测做高度紧凑化调整 */
+.ebbinghaus-summary-zone {
+  flex: 0 0 auto; /* 不自动拉伸，按内容紧凑展示 */
+  padding: 10px 14px;
+}
+
+.ebb-summary-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px; /* 压缩行间距 */
+  margin-top: 4px;
+}
+
+.ebb-summary-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 10px; /* 压缩 Padding，使其小巧精致 */
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ebb-summary-item strong {
+  font-size: 13px;
+  font-weight: 800;
 }
 
 .table-wrapper {
@@ -417,7 +450,7 @@ th {
   background-color: var(--danger-bg) !important;
 }
 
-/* 页面二：数据多维分析独立专属美化布局 */
+/* 页面二：数据多维分析 */
 .analysis-layout {
   grid-template-rows: auto 1fr;
   gap: 14px;
@@ -479,7 +512,7 @@ th {
   transition: width 0.5s ease;
 }
 
-/* 页面三：艾宾浩斯曲线独立风格布局 */
+/* 页面三：艾宾浩斯曲线 */
 .ebbinghaus-layout {
   grid-template-rows: auto 1fr;
   gap: 14px;
@@ -702,26 +735,24 @@ button:disabled {
 }
 
 .file-upload-wrapper {
-  margin: 15px 0 20px 0;
+  margin: 6px 0 10px 0;
   width: 100%;
 }
 
 .custom-file-upload {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 16px 20px;
+  gap: 12px;
+  padding: 10px 14px;
   background: var(--opt-btn-bg);
   border: 2px dashed var(--border);
-  border-radius: 12px;
+  border-radius: 8px;
   cursor: pointer;
   transition: all 0.25s ease;
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.02);
 }
 
 .custom-file-upload .upload-icon {
-  font-size: 26px;
-  transition: transform 0.25s ease;
+  font-size: 20px;
 }
 
 .custom-file-upload .upload-text {
@@ -732,23 +763,18 @@ button:disabled {
 }
 
 .custom-file-upload .upload-text strong {
-  font-size: 14px;
+  font-size: 13px;
   color: var(--text);
 }
 
 .custom-file-upload .upload-text small {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-muted);
 }
 
 .custom-file-upload:hover {
   border-color: var(--primary);
   background: var(--opt-btn-hover);
-  box-shadow: var(--shadow);
-}
-
-.custom-file-upload:hover .upload-icon {
-  transform: scale(1.15) rotate(-5deg);
 }
 
 [data-theme="dark"] .custom-file-upload {

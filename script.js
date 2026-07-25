@@ -457,6 +457,7 @@ function handleAnswerCore(index, btn, selectedOpt, isPaper) {
       nextReviewTime: item.nextReviewTime
     }));
   }, 0);
+  updateEbbinghausSummary();
 }
 
 // 按钮控制：上一题
@@ -803,6 +804,60 @@ if (exportWrongBtn) {
     link.click();
   });
 }
+
+// ==========================================
+// 新增：更新艾宾浩斯复习预测概览
+// ==========================================
+function updateEbbinghausSummary() {
+  if (!vocabList || vocabList.length === 0) return;
+
+  const now = Date.now();
+  const MIN_30 = 30 * 60 * 1000;
+  const DAY_1 = 24 * 60 * 60 * 1000;
+  const DAY_7 = 7 * 24 * 60 * 60 * 1000;
+
+  let expired = 0;
+  let in30m = 0;
+  let in1d = 0;
+  let in7d = 0;
+  let safe = 0;
+
+  vocabList.forEach((item) => {
+    // 过滤未开始刷的题
+    if (!item.nextReviewTime || item.nextReviewTime === 0) return;
+
+    const diff = item.nextReviewTime - now;
+
+    if (diff <= 0) {
+      expired++;
+    } else if (diff <= MIN_30) {
+      in30m++;
+    } else if (diff <= DAY_1) {
+      in1d++;
+    } else if (diff <= DAY_7) {
+      in7d++;
+    } else {
+      safe++;
+    }
+  });
+
+  // 更新 DOM
+  const elExpired = document.getElementById("ebbCountExpired");
+  const el30m = document.getElementById("ebbCount30m");
+  const el1d = document.getElementById("ebbCount1d");
+  const el7d = document.getElementById("ebbCount7d");
+  const elSafe = document.getElementById("ebbCountSafe");
+
+  if (elExpired) elExpired.innerText = `${expired} 题`;
+  if (el30m) el30m.innerText = `${in30m} 题`;
+  if (el1d) el1d.innerText = `${in1d} 题`;
+  if (el7d) el7d.innerText = `${in7d} 题`;
+  if (elSafe) elSafe.innerText = `${safe} 题`;
+}
+
+// ⚠️ 注意：请将 updateEbbinghausSummary() 加入到答题响应函数中
+// 在 handleAnswerCore(...) 函数里的 saveProgressToLocal() 后面添加一行：
+// updateEbbinghausSummary();
 
 // ==========================================
 // 恢复现场逻辑

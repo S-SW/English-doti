@@ -85,6 +85,7 @@
             </div>
           </div>
 
+          <!-- 1. 答题卡移至上方，并获得更充足高度 -->
           <div
             class="card answer-card-zone"
             id="answerCardZone"
@@ -105,34 +106,30 @@
             </div>
           </div>
 
-          <div
-            class="card dashboard-zone"
-            id="dashboardZone"
-            style="opacity: 0.4; pointer-events: none"
-          >
-            <h3>📋 简易题库快览</h3>
-            <div class="table-wrapper">
-              <table>
-                <thead>
-                  <tr>
-                    <th>序号</th>
-                    <th>题目摘要</th>
-                    <th>标准答案</th>
-                    <th>错误</th>
-                    <th>熟练度</th>
-                  </tr>
-                </thead>
-                <tbody id="dashboardBody">
-                  <tr>
-                    <td
-                      colspan="5"
-                      style="text-align: center; color: var(--text-muted)"
-                    >
-                      暂无数据
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+          <!-- 2. 复习预测移至下方，体积紧凑 -->
+          <div class="card ebbinghaus-summary-zone" id="ebbSummaryZone">
+            <h3>⏳ 艾宾浩斯复习预测概览</h3>
+            <div class="ebb-summary-list" id="ebbSummaryList">
+              <div class="ebb-summary-item">
+                <span>🚨 已到期 (需立刻复习)</span>
+                <strong id="ebbCountExpired" class="var-danger">0 题</strong>
+              </div>
+              <div class="ebb-summary-item">
+                <span>⏱️ 30 分钟内到期</span>
+                <strong id="ebbCount30m">0 题</strong>
+              </div>
+              <div class="ebb-summary-item">
+                <span>📅 1 天内到期</span>
+                <strong id="ebbCount1d">0 题</strong>
+              </div>
+              <div class="ebb-summary-item">
+                <span>📆 7 天内到期</span>
+                <strong id="ebbCount7d">0 题</strong>
+              </div>
+              <div class="ebb-summary-item">
+                <span>🌱 长期记忆 (7天以上)</span>
+                <strong id="ebbCountSafe" class="var-success">0 题</strong>
+              </div>
             </div>
           </div>
         </div>
