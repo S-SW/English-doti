@@ -31,6 +31,7 @@ const navBtnGroup = document.getElementById("navBtnGroup");
 const exportSnapshotBtn = document.getElementById("exportSnapshotBtn");
 const importSnapshotBtn = document.getElementById("importSnapshotBtn");
 const importSnapshotInput = document.getElementById("importSnapshotInput");
+const resetProgressBtn = document.getElementById("resetProgressBtn");
 
 // ==========================================
 // 缓存持久化逻辑
@@ -182,6 +183,8 @@ if (vocabFileInput) {
       answerCardZone.style.pointerEvents = "auto";
     }
     if (exportWrongBtn) exportWrongBtn.disabled = false;
+
+    if (resetProgressBtn) resetProgressBtn.disabled = false;
 
     // 6. 重新渲染UI并保存当前激活状态
     renderDashboard();
@@ -921,6 +924,8 @@ function autoRecoverOnRefresh() {
         }
         if (exportWrongBtn) exportWrongBtn.disabled = false;
 
+        if (resetProgressBtn) resetProgressBtn.disabled = false;
+
         renderDashboard();
         renderAnswerCard();
         renderQuizZone();
@@ -1062,6 +1067,8 @@ if (importSnapshotBtn && importSnapshotInput) {
         if (exportWrongBtn) exportWrongBtn.disabled = false;
         if (exportSnapshotBtn) exportSnapshotBtn.disabled = false;
 
+        if (resetProgressBtn) resetProgressBtn.disabled = false;
+
         // 5. 调用系统自带函数重新渲染全部 UI 页面
         renderDashboard();           // 重新生成仪表盘
         renderAnswerCard();          // 重新生成右侧答题卡
@@ -1077,6 +1084,58 @@ if (importSnapshotBtn && importSnapshotInput) {
     };
 
     reader.readAsText(file, "utf-8");
+  });
+}
+
+// ==========================================
+// 清除当前题库作答痕迹与遗忘曲线逻辑
+// ==========================================
+if (resetProgressBtn) {
+  resetProgressBtn.addEventListener("click", () => {
+    if (!vocabList || vocabList.length === 0) {
+      alert("当前没有可重置的题库数据！");
+      return;
+    }
+
+    // 确认二次提醒，防止误触
+    const confirmReset = confirm(
+      "⚠️ 警告：确定要重置当前题库的所有作答记录吗？\n\n" +
+      "此操作将清除：\n" +
+      "1. 所有题目做题历史与已选答案\n" +
+      "2. 错题统计与错误次数\n" +
+      "3. 艾宾浩斯遗忘曲线熟练度 (全部重置为 L0)\n" +
+      "4. 下一次复习时间点\n\n" +
+      "重置后数据无法直接撤销（建议先导出快照备份）。"
+    );
+
+    if (!confirmReset) return;
+
+    // 1. 重置内存中的题库数据状态为初始未答状态
+    vocabList.forEach((item) => {
+      item.errorCount = 0;
+      item.stage = 0;
+      item.userStatus = "unanswered";
+      item.selectedAnswer = null;
+      item.nextReviewTime = 0;
+
+      // 同时清理个别单字独立存储的全局缓存痕迹
+      const globalWordKey = `EBB_WORD_CORE_${item.word.trim()}`;
+      localStorage.removeItem(globalWordKey);
+    });
+
+    // 2. 指针复位到第一题
+    currentIndex = 0;
+
+    // 3. 将重置后的干净数据写回本地存储
+    saveProgressToLocal();
+
+    // 4. 重新渲染全局 UI 界面
+    renderDashboard();           // 重新渲染仪表盘
+    renderAnswerCard();          // 重新生成答题卡
+    renderQuizZone();            // 重新刷新刷题主面板
+    updateEbbinghausSummary();    // 重置艾宾浩斯复习预测面板数据
+
+    alert("✨ 当前题库的作答痕迹与遗忘曲线数据已全部重置！");
   });
 }
 
