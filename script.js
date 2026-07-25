@@ -29,6 +29,7 @@ const prevBtn = document.getElementById("prevBtn");
 const nextBtn = document.getElementById("nextBtn");
 const navBtnGroup = document.getElementById("navBtnGroup");
 
+
 // ==========================================
 // 缓存持久化逻辑
 // ==========================================
@@ -45,24 +46,23 @@ function saveProgressToLocal() {
 }
 
 function loadProgressFromLocal(fileName, totalCount) {
-  currentDbKey = `EBB_DATA_${fileName}_${totalCount}`;
-  const localFileState = localStorage.getItem(currentDbKey);
+  const targetKey = `EBB_DATA_${fileName}_${totalCount}`;
+  const localFileState = localStorage.getItem(targetKey);
   if (localFileState) {
     try {
       const parsed = JSON.parse(localFileState);
-      currentIndex = parsed.currentIndex || 0;
       if (parsed.savedVocabList && parsed.savedVocabList.length > 0) {
-        return parsed.savedVocabList;
+        return {
+          savedVocabList: parsed.savedVocabList,
+          currentIndex: parsed.currentIndex || 0
+        };
       }
     } catch (e) {
       console.error("读取文件进度失败：", e);
     }
-  } else {
-    currentIndex = 0;
   }
   return null;
 }
-
 // ==========================================
 // 界面交互与初始化
 // ==========================================
@@ -115,7 +115,7 @@ if (themeToggleBtn) {
 initTheme();
 
 // ==========================================
-// 文件导入与解析逻辑
+// 文件导入与解析逻辑（真正精确识别：同名保留，异名重置）
 // ==========================================
 if (vocabFileInput) {
   vocabFileInput.addEventListener("change", async () => {
@@ -134,32 +134,43 @@ if (vocabFileInput) {
       return;
     }
 
-    const savedData = loadProgressFromLocal(file.name, rawList.length);
-    if (savedData && savedData.length === rawList.length) {
-      vocabList = savedData;
+    // 1. 生成新文件的数据库 Key
+    const newDbKey = `EBB_DATA_${file.name}_${rawList.length}`;
+    
+    // 2. 尝试读取这个文件专属的本地记录
+    const savedRecord = loadProgressFromLocal(file.name, rawList.length);
+
+    // 3. 判断：如果该文件之前在 LocalStorage 中有保存过作答进度
+    if (savedRecord) {
+      // 满足条件：完全恢复该文件之前的作答记录与指针位置！
+      vocabList = savedRecord.savedVocabList;
+      currentIndex = savedRecord.currentIndex;
+      currentDbKey = newDbKey;
     } else {
+      // 场景：全新的文件（从没打开过，或者清空过）
+      currentDbKey = newDbKey;
+      currentIndex = 0;
+
+      // 按全新题库处理：抹去可能存在的全局单词痕迹，强制重置所有数据
       vocabList = rawList.map((item) => {
         const globalWordKey = `EBB_WORD_CORE_${item.word.trim()}`;
-        const savedMemory = localStorage.getItem(globalWordKey);
-        if (savedMemory) {
-          try {
-            const memory = JSON.parse(savedMemory);
-            return {
-              ...item,
-              errorCount: memory.errorCount || 0,
-              stage: memory.stage || 0,
-              userStatus: memory.userStatus || "unanswered",
-              selectedAnswer: memory.selectedAnswer || null,
-              nextReviewTime: memory.nextReviewTime || 0
-            };
-          } catch (e) {
-            console.error("融合单词历史失败：", e);
-          }
-        }
-        return item;
+        localStorage.removeItem(globalWordKey);
+
+        return {
+          ...item,
+          errorCount: 0,
+          stage: 0,
+          userStatus: "unanswered",
+          selectedAnswer: null,
+          nextReviewTime: 0
+        };
       });
     }
 
+    // 4. 重置文件选择器，确保再次点击同一个文件也能触发 change 事件
+    vocabFileInput.value = "";
+
+    // 5. 界面显示控制
     if (dashboardZone) {
       dashboardZone.style.opacity = "1";
       dashboardZone.style.pointerEvents = "auto";
@@ -170,10 +181,12 @@ if (vocabFileInput) {
     }
     if (exportWrongBtn) exportWrongBtn.disabled = false;
 
+    // 6. 重新渲染UI并保存当前激活状态
     renderDashboard();
     renderAnswerCard();
     renderQuizZone();
     saveProgressToLocal();
+    updateEbbinghausSummary();
   });
 }
 
@@ -750,6 +763,14 @@ function loadReviewQuestion() {
             Date.now() + (EBB_INTERVALS[item.stage - 1] || EBB_INTERVALS[EBB_INTERVALS.length - 1]);
           item.userStatus = "correct";
           
+          saveProgressToLocal();
+
+          // ----------------【新增：答对自动跳转逻辑】----------------
+          setTimeout(() => {
+            currentReviewPointer++;
+            loadReviewQuestion();
+          }, 200); // 600毫秒延迟，既有视觉反馈，刷题节奏又顺畅
+
         } else {
           btn.classList.add("wrong");
           if (feed) {
@@ -763,10 +784,11 @@ function loadReviewQuestion() {
           buttons.forEach((b) => {
             if (b.innerText === item.answer) b.classList.add("correct");
           });
+
+          // 答错时不跳转，显示“下一题”按钮，由用户手动确认
+          if (ebbNextBtn) ebbNextBtn.style.display = "block";
+          saveProgressToLocal();
         }
-        if (ebbNextBtn) ebbNextBtn.style.display = "block";
-        
-        saveProgressToLocal();
       };
       grid.appendChild(btn);
     });
