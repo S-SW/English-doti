@@ -215,14 +215,22 @@ function parseNewFormatFile(file) {
 }
 
 // ==========================================
-// 答题区核心渲染逻辑
+// 全卷模式高性能按需渲染 + 事件委托 (修复版)
 // ==========================================
+let paperObserver = null;
+
 function renderQuizZone() {
   const dynamicContent = document.getElementById("quizDynamicContent");
   if (!dynamicContent || vocabList.length === 0) return;
 
   const progressContainer = document.getElementById("progressContainer");
   const quizHeader = document.getElementById("quizHeader");
+
+  // 1. 清理旧的 Observer
+  if (paperObserver) {
+    paperObserver.disconnect();
+    paperObserver = null;
+  }
 
   if (isFullPaperMode) {
     if (progressContainer) progressContainer.style.display = "none";
@@ -232,54 +240,67 @@ function renderQuizZone() {
     dynamicContent.innerHTML = "";
     dynamicContent.classList.add("full-paper-scroll");
 
+    // 2. 事件委托：统一监听容器点击
+    dynamicContent.onclick = (e) => {
+      const btn = e.target.closest(".opt-btn");
+      if (!btn || btn.disabled) return;
+
+      const qIndex = parseInt(btn.dataset.qindex, 10);
+      const optVal = btn.dataset.optval;
+
+      if (!isNaN(qIndex) && optVal) {
+        handleAnswerCore(qIndex, btn, optVal, true);
+      }
+    };
+
+    // 3. 极轻量占位骨架
+    const fragment = document.createDocumentFragment();
     vocabList.forEach((item, index) => {
       const block = document.createElement("div");
+      // 保持原始 class 结构，避免样式坍塌
       block.className = `paper-item-block ${item.userStatus}`;
       block.id = `paper-q-${index}`;
-      if (index === currentIndex) block.classList.add("focused-item");
+      block.dataset.index = index;
+      block.dataset.isRendered = "false"; 
+      
+      // 给未渲染节点一个固定的预估高度，防止滚动条弹跳
+      block.style.minHeight = "160px";
 
-      const title = document.createElement("div");
-      title.className = "paper-item-title";
-      title.innerText = `${item.id}. ${item.word} [级别: L${item.stage}]`;
-
-      const grid = document.createElement("div");
-      grid.className = "options-grid";
-
-      item.options.forEach((option) => {
-        const btn = document.createElement("button");
-        btn.className = "opt-btn";
-        btn.innerText = option;
-        if (item.userStatus !== "unanswered") {
-          btn.disabled = true;
-          if (option === item.answer) btn.classList.add("correct");
-          if (option === item.selectedAnswer && option !== item.answer) {
-            btn.classList.add("wrong");
-          }
-        } else {
-          btn.onclick = () => handleAnswerCore(index, btn, option, true);
-        }
-        grid.appendChild(btn);
-      });
-
-      const feed = document.createElement("div");
-      feed.className = "feedback-msg";
-      if (item.userStatus === "correct") {
-        feed.innerText = "🎉 回答正确！";
-        feed.style.color = "var(--success-text)";
-      } else if (item.userStatus === "wrong") {
-        feed.innerText = `❌ 正确答案是：${item.answer}`;
-        feed.style.color = "var(--danger-text)";
-      }
-
-      block.appendChild(title);
-      block.appendChild(grid);
-      block.appendChild(feed);
-      dynamicContent.appendChild(block);
+      fragment.appendChild(block);
     });
+    dynamicContent.appendChild(fragment);
+
+    // 4. 懒加载观察器：滑动到视口前 300px 时才渲染内部节点
+    paperObserver = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const target = entry.target;
+            if (target.dataset.isRendered === "false") {
+              const index = parseInt(target.dataset.index, 10);
+              renderSinglePaperBlock(target, index);
+              target.dataset.isRendered = "true";
+            }
+          }
+        });
+      },
+      {
+        root: dynamicContent,
+        rootMargin: "300px 0px"
+      }
+    );
+
+    // 绑定观察
+    const blocks = dynamicContent.querySelectorAll(".paper-item-block");
+    blocks.forEach((el) => paperObserver.observe(el));
+
   } else {
+    // ---------------- 单题模式逻辑 ----------------
     if (progressContainer) progressContainer.style.display = "block";
     if (quizHeader) quizHeader.style.display = "flex";
     dynamicContent.classList.remove("full-paper-scroll");
+    dynamicContent.onclick = null;
+
     dynamicContent.innerHTML = `
       <div class="word-display" id="wordDisplay"></div>
       <div class="options-grid" id="optionsGrid"></div>
@@ -335,15 +356,59 @@ function renderQuizZone() {
       grid.appendChild(btn);
     });
   }
-  
-  // 更新答题卡的选中焦点态
+
   updateActiveAnswerCardItem();
 }
 
+// 辅助渲染函数（修正高度与重复标题问题）
+function renderSinglePaperBlock(container, index) {
+  const item = vocabList[index];
+  if (!item) return;
+
+  if (index === currentIndex) container.classList.add("focused-item");
+
+  // 生成所有选项按钮
+  let optionsHTML = "";
+  item.options.forEach((option) => {
+    let extraClass = "";
+    let disabledAttr = "";
+
+    if (item.userStatus !== "unanswered") {
+      disabledAttr = "disabled";
+      if (option === item.answer) extraClass += " correct";
+      if (option === item.selectedAnswer && option !== item.answer) extraClass += " wrong";
+    }
+
+    optionsHTML += `<button class="opt-btn ${extraClass}" ${disabledAttr} data-qindex="${index}" data-optval="${option}">${option}</button>`;
+  });
+
+  // 反馈信息
+  let feedHTML = "";
+  if (item.userStatus === "correct") {
+    feedHTML = `<div class="feedback-msg" style="color:var(--success-text)">🎉 回答正确！</div>`;
+  } else if (item.userStatus === "wrong") {
+    feedHTML = `<div class="feedback-msg" style="color:var(--danger-text)">❌ 正确答案是：${item.answer}</div>`;
+  } else {
+    feedHTML = `<div class="feedback-msg"></div>`;
+  }
+
+  // 清空并写入 DOM（只保留单份标题）
+  container.innerHTML = `
+    <div class="paper-item-title">${item.id}. ${item.word} [级别: L${item.stage}]</div>
+    <div class="options-grid">${optionsHTML}</div>
+    ${feedHTML}
+  `;
+
+  // 【关键修补】：渲染完真实内容后，取消固定最小高度约束，让卡片被所有选项自然撑开！
+  container.style.minHeight = "auto";
+  container.style.height = "auto";
+}
+
+
+// 核心答题响应（毫秒级优化）
 function handleAnswerCore(index, btn, selectedOpt, isPaper) {
   const item = vocabList[index];
-  
-  if (item.userStatus !== "unanswered") return;
+  if (!item || item.userStatus !== "unanswered") return;
 
   item.selectedAnswer = selectedOpt;
   const now = Date.now();
@@ -362,13 +427,13 @@ function handleAnswerCore(index, btn, selectedOpt, isPaper) {
 
   if (isPaper) currentIndex = index;
 
-  // 1. 即时高亮选项样式（零延迟）
+  // 1. 直出修改 DOM 样式（避免全局寻找选择器）
   const parentContainer = btn.parentElement;
   const allBtns = parentContainer.querySelectorAll(".opt-btn");
   
   allBtns.forEach((b) => {
     b.disabled = true;
-    if (b.innerText === item.answer) {
+    if (b.dataset.optval === item.answer || b.innerText === item.answer) {
       b.classList.add("correct");
     }
     if (b === btn && selectedOpt !== item.answer) {
@@ -376,39 +441,23 @@ function handleAnswerCore(index, btn, selectedOpt, isPaper) {
     }
   });
 
-  // 2. 即时更新局部反馈与徽章
-  if (!isPaper) {
-    const feed = document.getElementById("feedback");
+  // 2. 反馈文字更新
+  const block = isPaper ? btn.closest(".paper-item-block") : document.getElementById("quizDynamicContent");
+  if (block) {
+    if (isPaper) block.className = `paper-item-block ${item.userStatus}`;
+    const feed = block.querySelector(".feedback-msg");
     if (feed) {
-      feed.innerText = item.userStatus === "correct" ? "🎉 回答正确！" : `❌ 正确答案：${item.answer}`;
+      feed.innerText = item.userStatus === "correct" ? "🎉 回答正确！" : `❌ 正确答案是：${item.answer}`;
       feed.style.color = item.userStatus === "correct" ? "var(--success-text)" : "var(--danger-text)";
-    }
-    if (nextBtn) nextBtn.style.display = "block";
-    
-    const stageBadge = document.getElementById("wordStage");
-    if (stageBadge) {
-      stageBadge.innerText = `熟练度: L${item.stage}`;
-      stageBadge.className = `badge stage-${item.stage}`;
-    }
-  } else {
-    const block = document.getElementById(`paper-q-${index}`);
-    if (block) {
-      block.className = `paper-item-block ${item.userStatus}`;
-      const feed = block.querySelector(".feedback-msg");
-      if (feed) {
-        feed.innerText = item.userStatus === "correct" ? "🎉 回答正确！" : `❌ 正确答案是：${item.answer}`;
-        feed.style.color = item.userStatus === "correct" ? "var(--success-text)" : "var(--danger-text)";
-      }
     }
   }
 
-  // 3. 极速局部更新答题卡节点（免去重绘整张答题卡 DOM）
+  // 3. 极速更新答题卡
   updateSingleAnswerCardNode(index, item.userStatus);
 
-  // 4. 异步落盘，保障流畅动画
-  requestAnimationFrame(() => {
+  // 4. 离屏异步落盘（绝对不拖慢主线程帧率）
+  setTimeout(() => {
     saveProgressToLocal();
-    // 单词全局历史状态独立备份，便于下次跨库复用
     localStorage.setItem(`EBB_WORD_CORE_${item.word.trim()}`, JSON.stringify({
       errorCount: item.errorCount,
       stage: item.stage,
@@ -416,7 +465,7 @@ function handleAnswerCore(index, btn, selectedOpt, isPaper) {
       selectedAnswer: item.selectedAnswer,
       nextReviewTime: item.nextReviewTime
     }));
-  });
+  }, 0);
 }
 
 if (nextBtn) {
