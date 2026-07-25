@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>智能一体化全屏刷题看板</title>
+    <title>智能一体化全屏刷题看板 - 答题中心</title>
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
@@ -12,15 +12,8 @@
         <div class="header-left">
           <h1>🧠 智能一体化高对比刷题系统</h1>
           <div class="nav-tabs">
-            <button class="tab-btn active" data-tab="quizTab">
-              📝 今日刷题
-            </button>
-            <button class="tab-btn" data-tab="analysisTab">
-              📊 数据多维分析
-            </button>
-            <button class="tab-btn" data-tab="ebbinghausTab">
-              ⏳ 艾宾浩斯复习
-            </button>
+            <a href="index.html" class="tab-btn active">📝 今日刷题</a>
+            <a href="analysis.html" class="tab-btn">📊 数据分析与艾宾浩斯复习</a>
           </div>
         </div>
         <div class="header-controls">
@@ -87,9 +80,6 @@
               <button id="exportWrongBtn" class="export-btn" disabled>
                 📥 导出当前错题集
               </button>
-              <button id="resetBtn" class="danger-btn" disabled>
-                🔄 重置进度
-              </button>
             </div>
           </div>
 
@@ -141,118 +131,6 @@
                   </tr>
                 </tbody>
               </table>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="analysis-layout tab-content id" id="analysisTab">
-        <div class="card analysis-summary-box">
-          <h3>📈 整体数据宏观统计</h3>
-          <div class="metrics-grid">
-            <div class="metric-card">
-              <div class="title">总题目数量</div>
-              <div class="value" id="statTotal">0</div>
-            </div>
-            <div class="metric-card">
-              <div class="title">已完成答题</div>
-              <div class="value" id="statAnswered">0</div>
-            </div>
-            <div class="metric-card">
-              <div class="title">综合正确率</div>
-              <div class="value var-success" id="statAccuracy">0%</div>
-            </div>
-            <div class="metric-card">
-              <div class="title">触发遗忘警报题</div>
-              <div class="value var-danger" id="statForgetWarning">0</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="analysis-charts-grid">
-          <div class="card chart-card">
-            <h3>🎯 记忆熟练度级别分布 (L0 - L3)</h3>
-            <div class="stage-distribution-list" id="stageDistributionList">
-              <p style="color: var(--text-muted)">请先导入题库进行分析...</p>
-            </div>
-          </div>
-          <div class="card chart-card">
-            <h3>⚠️ 高危高错题目 TOP 5 榜单</h3>
-            <div class="table-wrapper">
-              <table>
-                <thead>
-                  <tr>
-                    <th>序号</th>
-                    <th>核心题目</th>
-                    <th>答错次数</th>
-                    <th>当前状态</th>
-                  </tr>
-                </thead>
-                <tbody id="topWrongBody">
-                  <tr>
-                    <td
-                      colspan="4"
-                      style="text-align: center; color: var(--text-muted)"
-                    >
-                      暂无高错题目
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="ebbinghaus-layout tab-content" id="ebbinghausTab">
-        <div class="card ebbinghaus-intro">
-          <h3>⏳ 科学艾宾浩斯遗忘曲线智能提醒引擎</h3>
-          <p>
-            根据记忆曲线法则，本系统将题目记忆周期精确细分为：<strong>5分钟、30分钟、12小时、1天、2天、4天、7天、15天</strong>。系统会对每一次作答错误进行遗忘惩罚，并自动推算下一节点的完美复习时间。
-          </p>
-        </div>
-
-        <div class="ebb-main-grid">
-          <div class="card ebb-timeline-panel">
-            <h3>🚨 临界遗忘点状态监控</h3>
-            <div class="ebb-stage-scroller" id="ebbStageContainer">
-              <p
-                style="
-                  color: var(--text-muted);
-                  text-align: center;
-                  padding: 20px;
-                "
-              >
-                暂无遗忘线队列信息，请先进行答题。
-              </p>
-            </div>
-          </div>
-
-          <div class="card ebb-action-panel">
-            <h3>🔥 智能深度特训：当前到期需立刻复习的题目</h3>
-            <div class="review-status-bar" id="reviewStatusBar">
-              当前无到期应复习题目
-            </div>
-            <div
-              class="card quiz-zone"
-              id="ebbReviewZone"
-              style="
-                display: none;
-                border: none;
-                padding: 10px;
-                box-shadow: none;
-              "
-            >
-              <div
-                class="word-display"
-                id="ebbWordDisplay"
-                style="font-size: 20px; margin: 15px 0"
-              ></div>
-              <div class="options-grid" id="ebbOptionsGrid"></div>
-              <div id="ebbFeedback" class="feedback-msg"></div>
-              <button id="ebbNextBtn" class="success-btn" style="display: none">
-                下一题
-              </button>
             </div>
           </div>
         </div>

@@ -72,6 +72,13 @@ body {
 }
 .tab-btn:hover { color: var(--text); background: var(--opt-btn-hover); }
 .tab-btn.active { color: white; background: var(--primary); border-color: var(--primary); }
+/* 保证 <a> 标签按钮与常规 <button> 表现一致 */
+a.tab-btn {
+    display: inline-block;
+    text-decoration: none;
+    text-align: center;
+    line-height: normal;
+}
 
 .header-controls { display: flex; align-items: center; gap: 14px; }
 .theme-toggle-btn {
