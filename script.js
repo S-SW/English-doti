@@ -25,7 +25,9 @@ const answerCardZone = document.getElementById("answerCardZone");
 const themeToggleBtn = document.getElementById("themeToggleBtn");
 const modeToggle = document.getElementById("modeToggle");
 const exportWrongBtn = document.getElementById("exportWrongBtn");
+const prevBtn = document.getElementById("prevBtn");
 const nextBtn = document.getElementById("nextBtn");
+const navBtnGroup = document.getElementById("navBtnGroup");
 
 // ==========================================
 // 缓存持久化逻辑
@@ -215,7 +217,7 @@ function parseNewFormatFile(file) {
 }
 
 // ==========================================
-// 全卷模式高性能按需渲染 + 事件委托 (修复版)
+// 全卷模式高性能按需渲染 + 事件委托
 // ==========================================
 let paperObserver = null;
 
@@ -235,7 +237,7 @@ function renderQuizZone() {
   if (isFullPaperMode) {
     if (progressContainer) progressContainer.style.display = "none";
     if (quizHeader) quizHeader.style.display = "none";
-    if (nextBtn) nextBtn.style.display = "none";
+    if (navBtnGroup) navBtnGroup.style.display = "none"; // 全卷模式下隐藏导航按钮组
 
     dynamicContent.innerHTML = "";
     dynamicContent.classList.add("full-paper-scroll");
@@ -257,13 +259,11 @@ function renderQuizZone() {
     const fragment = document.createDocumentFragment();
     vocabList.forEach((item, index) => {
       const block = document.createElement("div");
-      // 保持原始 class 结构，避免样式坍塌
       block.className = `paper-item-block ${item.userStatus}`;
       block.id = `paper-q-${index}`;
       block.dataset.index = index;
       block.dataset.isRendered = "false"; 
       
-      // 给未渲染节点一个固定的预估高度，防止滚动条弹跳
       block.style.minHeight = "160px";
 
       fragment.appendChild(block);
@@ -298,6 +298,8 @@ function renderQuizZone() {
     // ---------------- 单题模式逻辑 ----------------
     if (progressContainer) progressContainer.style.display = "block";
     if (quizHeader) quizHeader.style.display = "flex";
+    if (navBtnGroup) navBtnGroup.style.display = "flex"; // 单题模式下始终保持显示
+
     dynamicContent.classList.remove("full-paper-scroll");
     dynamicContent.onclick = null;
 
@@ -344,14 +346,12 @@ function renderQuizZone() {
         if (option === item.selectedAnswer && option !== item.answer) {
           btn.classList.add("wrong");
         }
-        if (nextBtn) nextBtn.style.display = "block";
         if (feed) {
           feed.innerText = item.userStatus === "correct" ? "🎉 回答正确！" : `❌ 正确答案：${item.answer}`;
           feed.style.color = item.userStatus === "correct" ? "var(--success-text)" : "var(--danger-text)";
         }
       } else {
         btn.onclick = () => handleAnswerCore(currentIndex, btn, option, false);
-        if (nextBtn) nextBtn.style.display = "none";
       }
       grid.appendChild(btn);
     });
@@ -360,14 +360,13 @@ function renderQuizZone() {
   updateActiveAnswerCardItem();
 }
 
-// 辅助渲染函数（修正高度与重复标题问题）
+// 辅助渲染函数
 function renderSinglePaperBlock(container, index) {
   const item = vocabList[index];
   if (!item) return;
 
   if (index === currentIndex) container.classList.add("focused-item");
 
-  // 生成所有选项按钮
   let optionsHTML = "";
   item.options.forEach((option) => {
     let extraClass = "";
@@ -382,7 +381,6 @@ function renderSinglePaperBlock(container, index) {
     optionsHTML += `<button class="opt-btn ${extraClass}" ${disabledAttr} data-qindex="${index}" data-optval="${option}">${option}</button>`;
   });
 
-  // 反馈信息
   let feedHTML = "";
   if (item.userStatus === "correct") {
     feedHTML = `<div class="feedback-msg" style="color:var(--success-text)">🎉 回答正确！</div>`;
@@ -392,20 +390,17 @@ function renderSinglePaperBlock(container, index) {
     feedHTML = `<div class="feedback-msg"></div>`;
   }
 
-  // 清空并写入 DOM（只保留单份标题）
   container.innerHTML = `
     <div class="paper-item-title">${item.id}. ${item.word} [级别: L${item.stage}]</div>
     <div class="options-grid">${optionsHTML}</div>
     ${feedHTML}
   `;
 
-  // 【关键修补】：渲染完真实内容后，取消固定最小高度约束，让卡片被所有选项自然撑开！
   container.style.minHeight = "auto";
   container.style.height = "auto";
 }
 
-
-// 核心答题响应（毫秒级优化）
+// 核心答题响应
 function handleAnswerCore(index, btn, selectedOpt, isPaper) {
   const item = vocabList[index];
   if (!item || item.userStatus !== "unanswered") return;
@@ -427,7 +422,6 @@ function handleAnswerCore(index, btn, selectedOpt, isPaper) {
 
   if (isPaper) currentIndex = index;
 
-  // 1. 直出修改 DOM 样式（避免全局寻找选择器）
   const parentContainer = btn.parentElement;
   const allBtns = parentContainer.querySelectorAll(".opt-btn");
   
@@ -441,7 +435,6 @@ function handleAnswerCore(index, btn, selectedOpt, isPaper) {
     }
   });
 
-  // 2. 反馈文字更新
   const block = isPaper ? btn.closest(".paper-item-block") : document.getElementById("quizDynamicContent");
   if (block) {
     if (isPaper) block.className = `paper-item-block ${item.userStatus}`;
@@ -452,10 +445,8 @@ function handleAnswerCore(index, btn, selectedOpt, isPaper) {
     }
   }
 
-  // 3. 极速更新答题卡
   updateSingleAnswerCardNode(index, item.userStatus);
 
-  // 4. 离屏异步落盘（绝对不拖慢主线程帧率）
   setTimeout(() => {
     saveProgressToLocal();
     localStorage.setItem(`EBB_WORD_CORE_${item.word.trim()}`, JSON.stringify({
@@ -468,8 +459,24 @@ function handleAnswerCore(index, btn, selectedOpt, isPaper) {
   }, 0);
 }
 
+// 按钮控制：上一题
+if (prevBtn) {
+  prevBtn.addEventListener("click", () => {
+    if (vocabList.length === 0) return;
+    if (currentIndex > 0) {
+      currentIndex--;
+      renderQuizZone();
+      saveProgressToLocal();
+    } else {
+      alert("已经是第一题了！");
+    }
+  });
+}
+
+// 按钮控制：下一题
 if (nextBtn) {
   nextBtn.addEventListener("click", () => {
+    if (vocabList.length === 0) return;
     if (currentIndex < vocabList.length - 1) {
       currentIndex++;
       renderQuizZone();
@@ -513,7 +520,6 @@ function renderAnswerCard() {
   grid.appendChild(fragment);
 }
 
-// 仅更新单个答题卡小块的状态（极致流畅体验）
 function updateSingleAnswerCardNode(index, status) {
   const node = document.getElementById(`card-item-${index}`);
   if (node) {
@@ -522,7 +528,6 @@ function updateSingleAnswerCardNode(index, status) {
   }
 }
 
-// 仅更新当前焦点的答题卡项
 function updateActiveAnswerCardItem() {
   const currentActive = document.querySelector(".answer-item.active");
   if (currentActive) currentActive.classList.remove("active");
@@ -760,7 +765,6 @@ function loadReviewQuestion() {
         }
         if (ebbNextBtn) ebbNextBtn.style.display = "block";
         
-        // 艾宾浩斯复习答题同步保存进度
         saveProgressToLocal();
       };
       grid.appendChild(btn);
@@ -849,3 +853,52 @@ function autoRecoverOnRefresh() {
 }
 
 window.addEventListener("DOMContentLoaded", autoRecoverOnRefresh);
+// ==========================================
+// 键盘快捷键监听逻辑
+// ==========================================
+document.addEventListener('keydown', (e) => {
+  // 避免用户在输入框、文本域中打字时误触发快捷键
+  const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
+  if (activeTag === 'input' || activeTag === 'textarea') return;
+
+  const key = e.key;
+
+  // 1. 切题逻辑：A / LeftArrow (上一题)
+  if (key === 'a' || key === 'A' || key === 'ArrowLeft') {
+    e.preventDefault();
+    if (prevBtn) prevBtn.click();
+  }
+
+  // 2. 切题逻辑：D / RightArrow (下一题)
+  if (key === 'd' || key === 'D' || key === 'ArrowRight') {
+    e.preventDefault();
+    if (nextBtn) nextBtn.click();
+  }
+
+  // 3. 提交/确认逻辑：W / Enter
+  if (key === 'w' || key === 'W' || key === 'Enter') {
+    e.preventDefault();
+    // 单题模式下尝试触发“下一题”或艾宾浩斯复习页面的“下一题”
+    const ebbNextBtn = document.getElementById('ebbNextBtn');
+    if (ebbNextBtn && ebbNextBtn.style.display !== 'none') {
+      ebbNextBtn.click();
+    } else if (nextBtn) {
+      nextBtn.click();
+    }
+  }
+
+  // 4. 数字键选择逻辑：1 - 4（主键盘及小键盘）
+  if (['1', '2', '3', '4'].includes(key)) {
+    e.preventDefault();
+    const optIndex = parseInt(key, 10) - 1;
+
+    // 优先匹配当前单题模式容器
+    const currentContainer = document.getElementById('optionsGrid') || document.getElementById('ebbOptionsGrid');
+    if (currentContainer) {
+      const options = currentContainer.querySelectorAll('.opt-btn');
+      if (options && options[optIndex] && !options[optIndex].disabled) {
+        options[optIndex].click();
+      }
+    }
+  }
+});

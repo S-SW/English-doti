@@ -115,7 +115,6 @@ body {
   background: var(--primary);
   border-color: var(--primary);
 }
-/* 保证 <a> 标签按钮与常规 <button> 表现一致 */
 a.tab-btn {
   display: inline-block;
   text-decoration: none;
@@ -198,7 +197,6 @@ a.tab-btn {
   overflow-y: auto;
   flex: 1;
   padding-right: 8px;
-  /* 使用 flex 布局并开启 column 垂直方向，加上 gap 弹性间距，彻底消除重叠 */
   display: flex !important;
   flex-direction: column !important;
   gap: 16px !important; 
@@ -209,9 +207,9 @@ a.tab-btn {
   padding: 16px;
   border-radius: 8px;
   border: 1px solid var(--border);
-  background: var(--card-bg); /* 改为卡片白底，增强卡片层次感 */
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05); /* 增加轻微阴影隔离卡片 */
-  margin-bottom: 0; /* 间距由父级 gap 统一控制 */
+  background: var(--card-bg);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  margin-bottom: 0;
   box-sizing: border-box;
 }
 
@@ -280,6 +278,48 @@ a.tab-btn {
   min-height: 20px;
   font-size: 15px;
   margin: 4px 0;
+}
+
+/* ==========================================================================
+   ✨ 单题模式【上一题/下一题】贴近选项下方的新增控制组样式
+   ========================================================================== */
+.nav-btn-group {
+  display: flex;
+  gap: 10px;
+  margin-top: 6px; /* 紧贴反馈区域与选项下方 */
+  width: 100%;
+}
+
+.nav-action-btn {
+  flex: 1;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 700;
+  border-radius: 8px;
+  cursor: pointer;
+  background: var(--opt-btn-bg);
+  color: var(--text);
+  border: 2px solid var(--border);
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-action-btn:hover:not(:disabled) {
+  border-color: var(--primary);
+  background: var(--opt-btn-hover);
+}
+
+.nav-action-btn.primary {
+  background: var(--primary);
+  color: #ffffff;
+  border-color: var(--primary);
+}
+
+.nav-action-btn.primary:hover:not(:disabled) {
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
 }
 
 .right-panel {
@@ -627,50 +667,40 @@ button:disabled {
   }
 }
 
-/* ==========================================================================
-   ✨ 【新增】熟练度徽章与选择文件按钮的高级美化样式
-   ========================================================================== */
-
-/* 1. 熟练度徽章 (Badge) 的华丽蜕变 */
+/* 熟练度徽章与选择文件按钮样式 */
 #wordStage.badge {
   padding: 6px 14px;
   font-size: 13px;
   font-weight: 800;
-  border-radius: 50px; /* 胶囊圆角 */
+  border-radius: 50px;
   letter-spacing: 0.5px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  background: linear-gradient(
-    135deg,
-    #7f8c8d,
-    #95a5a6
-  ); /* 默认 L0 极客灰渐变 */
+  background: linear-gradient(135deg, #7f8c8d, #95a5a6);
   color: #ffffff !important;
   border: 1px solid rgba(255, 255, 255, 0.15);
 }
 
-/* 针对不同熟练度级别自动映射高级渐变色 */
 #wordStage.badge.stage-0 {
   background: linear-gradient(135deg, #7f8c8d, #95a5a6);
-} /* L0 */
+}
 #wordStage.badge.stage-1,
 #wordStage.badge.stage-2 {
   background: linear-gradient(135deg, #3498db, #2980b9);
-} /* L1-L2 科技蓝 */
+}
 #wordStage.badge.stage-3,
 #wordStage.badge.stage-4 {
   background: linear-gradient(135deg, #f39c12, #d35400);
-} /* L3-L4 活力橙 */
+}
 #wordStage.badge.stage-5,
 #wordStage.badge.stage-6 {
   background: linear-gradient(135deg, #9b59b6, #8e44ad);
-} /* L5-L6 睿智紫 */
+}
 #wordStage.badge.stage-7,
 #wordStage.badge.stage-8 {
   background: linear-gradient(135deg, #2ecc71, #27ae60);
-} /* L7-L8 完美绿 */
+}
 
-/* 2. 大气卡片式文件上传区域 */
 .file-upload-wrapper {
   margin: 15px 0 20px 0;
   width: 100%;
@@ -711,7 +741,6 @@ button:disabled {
   color: var(--text-muted);
 }
 
-/* 悬浮与激活交互反馈 */
 .custom-file-upload:hover {
   border-color: var(--primary);
   background: var(--opt-btn-hover);
@@ -719,10 +748,9 @@ button:disabled {
 }
 
 .custom-file-upload:hover .upload-icon {
-  transform: scale(1.15) rotate(-5deg); /* 图标灵动跳跃 */
+  transform: scale(1.15) rotate(-5deg);
 }
 
-/* 适配暗黑模式的细调 */
 [data-theme="dark"] .custom-file-upload {
   background: #202124;
   border-color: #3c4043;
@@ -731,18 +759,17 @@ button:disabled {
   background: #2d2e31;
   border-color: #8ab4f8;
 }
-/* 1. 禁用状态下，如果没有 correct 或 wrong 标签，保持原本样式/背景透明，防止默认灰色覆盖 */
+
 .opt-btn:disabled:not(.correct):not(.wrong) {
-  background: var(--opt-btn-bg) !important; /* 保持原卡片按钮背景色 */
-  border-color: var(--border) !important;   /* 保持默认边框色 */
-  color: var(--text-muted) !important;     /* 仅让文字颜色微微变浅，不改变背景 */
-  opacity: 0.8;                             /* 维持舒适的视觉透明度 */
+  background: var(--opt-btn-bg) !important;
+  border-color: var(--border) !important;
+  color: var(--text-muted) !important;
+  opacity: 0.8;
   cursor: default;
 }
 
-/* 2. 暗黑模式下进一步确保未选中的禁用选项背景自然融入 */
 [data-theme="dark"] .opt-btn:disabled:not(.correct):not(.wrong) {
-  background: transparent !important;       /* 暗黑模式下未选中项保持背景透明 */
+  background: transparent !important;
   border-color: var(--border) !important;
-  color: rgba(255, 255, 255, 0.5) !important; /* 未选中文本半透明度降低干扰 */
+  color: rgba(255, 255, 255, 0.5) !important;
 }
