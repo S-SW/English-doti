@@ -5,6 +5,7 @@ let vocabList = [];
 let currentIndex = 0;
 let isFullPaperMode = false;
 let currentDbKey = ""; // 当前文件的本地缓存唯一识别 Key
+let isAutoNextEnabled = true;
 
 // 艾宾浩斯时间跨度表 (单位：毫秒)
 const EBB_INTERVALS = [
@@ -32,6 +33,7 @@ const exportSnapshotBtn = document.getElementById("exportSnapshotBtn");
 const importSnapshotBtn = document.getElementById("importSnapshotBtn");
 const importSnapshotInput = document.getElementById("importSnapshotInput");
 const resetProgressBtn = document.getElementById("resetProgressBtn");
+const autoNextToggle = document.getElementById("autoNextToggle");
 
 // ==========================================
 // 缓存持久化逻辑
@@ -72,6 +74,12 @@ function loadProgressFromLocal(fileName, totalCount) {
 if (modeToggle) {
   modeToggle.addEventListener("change", (e) => {
     isFullPaperMode = e.target.checked;
+
+// ✨ 全卷模式不需要切题，自动隐藏“自动跳转”开关；单题模式下显示
+    const autoNextSwitchBox = document.getElementById("autoNextSwitchBox");
+    if (autoNextSwitchBox) {
+      autoNextSwitchBox.style.display = isFullPaperMode ? "none" : "flex";
+    }
     renderQuizZone();
   });
 }
@@ -97,6 +105,23 @@ document.querySelectorAll(".tab-btn").forEach((btn) => {
     }
   });
 });
+
+
+// 初始化答对自动跳转开关状态
+if (autoNextToggle) {
+  // 读取用户保存在本地的偏好设置
+  const savedAutoNext = localStorage.getItem("EBB_AUTO_NEXT_ENABLED");
+  if (savedAutoNext !== null) {
+    isAutoNextEnabled = savedAutoNext === "true";
+    autoNextToggle.checked = isAutoNextEnabled;
+  }
+
+  autoNextToggle.addEventListener("change", (e) => {
+    isAutoNextEnabled = e.target.checked;
+    localStorage.setItem("EBB_AUTO_NEXT_ENABLED", isAutoNextEnabled);
+  });
+}
+
 
 document.addEventListener("DOMContentLoaded", () => {
   // 绑定“错题数量”卡片点击事件：点击跳转到 ctph 错题排行界面
@@ -489,6 +514,19 @@ function handleAnswerCore(index, btn, selectedOpt, isPaper) {
   }, 0);
   updateEbbinghausSummary();
   updateTopWrongTable(vocabList);
+
+  // ✨【新增】：单题模式下，若答对且开启了自动跳转，延迟 350ms 后切入下一题
+  if (!isPaper && selectedOpt === item.answer && isAutoNextEnabled) {
+    setTimeout(() => {
+      if (currentIndex < vocabList.length - 1) {
+        currentIndex++;
+        renderQuizZone();
+        saveProgressToLocal();
+      } else {
+        alert("🎉 恭喜！当前题库已全部刷完！");
+      }
+    }, 200); // 350ms 延迟：既能看到“回答正确”的绿色高亮反馈，又能顺畅切题
+  }
 }
 
 // 按钮控制：上一题
