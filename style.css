@@ -799,3 +799,24 @@ button:disabled {
   border-color: var(--border) !important;
   color: rgba(255, 255, 255, 0.5) !important;
 }
+
+/* 修复 Chart.js 容器溢出与图表错位问题 */
+.chart-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* 防止内部图表超界 */
+}
+
+.chart-container {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  flex: 1;
+  min-height: 220px;
+  max-height: 260px; /* 严格限制最大高度 */
+}
+
+.chart-container canvas {
+  width: 100% !important;
+  height: 100% !important;
+}

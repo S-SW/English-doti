@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>智能一体化全屏刷题看板 - 数据分析中心</title>
     <link rel="stylesheet" href="style.css" />
+    <!-- 引入 Chart.js 图表库 -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   </head>
   <body>
     <div class="fullscreen-container">
@@ -28,9 +30,11 @@
         </div>
       </header>
 
+<!-- 1. 数据多维分析面板 -->
       <div class="analysis-layout tab-content active" id="analysisTab">
+        <!-- 核心指标卡片群 -->
         <div class="card analysis-summary-box">
-          <h3>📈 整体数据宏观统计</h3>
+          <h3>📈 整体数据宏观统计与学习效率</h3>
           <div class="metrics-grid">
             <div class="metric-card">
               <div class="title">总题目数量</div>
@@ -48,19 +52,40 @@
               <div class="title">触发遗忘警报题</div>
               <div class="value var-danger" id="statForgetWarning">0</div>
             </div>
+            <div class="metric-card">
+              <div class="title">剩余全库预计耗时</div>
+              <div class="value" id="statEstTime">-- 分钟</div>
+            </div>
           </div>
         </div>
 
+        <!-- 网格 1：艾宾浩斯曲线 & 环形正误分布 -->
         <div class="analysis-charts-grid">
           <div class="card chart-card">
-            <h3>🎯 记忆熟练度级别分布 (L0 - L3)</h3>
-            <div class="stage-distribution-list" id="stageDistributionList">
-              <p style="color: var(--text-muted)">正在读取题库历史数据...</p>
+            <h3>📉 艾宾浩斯理论衰减 vs 实际记忆保留率曲线</h3>
+            <div class="chart-container">
+              <canvas id="ebbinghausCurveChart"></canvas>
+            </div>
+          </div>
+          <div class="card chart-card">
+            <h3>🍩 题目答题状态与正误分布</h3>
+            <div class="chart-container">
+              <canvas id="accuracyPieChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- 网格 2：熟练度柱状图 & 高危错题榜单 -->
+        <div class="analysis-charts-grid" style="margin-top: 20px;">
+          <div class="card chart-card">
+            <h3>📊 记忆熟练度级别分布 (L0 - L3)</h3>
+            <div class="chart-container">
+              <canvas id="stageBarChart"></canvas>
             </div>
           </div>
           <div class="card chart-card">
             <h3>⚠️ 高危高错题目 TOP 5 榜单</h3>
-            <div class="table-wrapper">
+            <div class="table-wrapper" style="max-height: 240px; overflow-y: auto;">
               <table>
                 <thead>
                   <tr>
@@ -72,10 +97,7 @@
                 </thead>
                 <tbody id="topWrongBody">
                   <tr>
-                    <td
-                      colspan="4"
-                      style="text-align: center; color: var(--text-muted)"
-                    >
+                    <td colspan="4" style="text-align: center; color: var(--text-muted)">
                       暂无高错题目
                     </td>
                   </tr>
@@ -86,60 +108,105 @@
         </div>
       </div>
 
+     <!-- 2. 艾宾浩斯复习面板 -->
       <div class="ebbinghaus-layout tab-content" id="ebbinghausTab">
-        <div class="card ebbinghaus-intro">
+        <!-- 顶部：规则提示 -->
+        <div class="card ebbinghaus-intro" style="margin-bottom: 16px;">
           <h3>⏳ 科学艾宾浩斯遗忘曲线智能提醒引擎</h3>
           <p>
-            根据记忆曲线法则，本系统将题目记忆周期精确细分为：<strong>5分钟、30分钟、12小时、1天、2天、4天、7天、15天</strong>。系统会对每一次作答错误进行遗忘惩罚，并自动推算下一节点的完美复习时间。
+            根据记忆曲线法则，系统将题目记忆周期精确细分为：<strong>5分钟、30分钟、12小时、1天、2天、4天、7天、15天</strong>。系统会对每次作答错误进行遗忘惩罚，并自动推算下一个最佳复习节点。
           </p>
         </div>
 
-        <div class="ebb-main-grid">
-          <div class="card ebb-timeline-panel">
-            <h3>🚨 临界遗忘点状态监控</h3>
-            <div class="ebb-stage-scroller" id="ebbStageContainer">
-              <p
-                style="
-                  color: var(--text-muted);
-                  text-align: center;
-                  padding: 20px;
-                "
-              >
-                暂无遗忘线队列信息，请先在主页导入题库并答题。
-              </p>
-            </div>
-          </div>
-
-          <div class="card ebb-action-panel">
-            <h3>🔥 智能深度特训：当前到期需立刻复习的题目</h3>
-            <div class="review-status-bar" id="reviewStatusBar">
+        <!-- 🌟 核心布局：左右双栏并排结构 -->
+        <div class="analysis-charts-grid" style="grid-template-columns: 1.6fr 1fr; gap: 20px; align-items: start;">
+          
+          <!-- 👈 左侧：单词复习模式（核心答题区） -->
+          <div class="card ebb-action-panel" style="border: 1px solid var(--primary-color, #3498db); min-height: 480px;">
+            <h3 style="color: var(--primary-color, #3498db); border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px;">
+              🔥 智能深度特训：单词复习模式
+            </h3>
+            
+            <div class="review-status-bar" id="reviewStatusBar" style="margin-top: 15px;">
               当前无到期应复习题目
             </div>
+
             <div
               class="card quiz-zone"
               id="ebbReviewZone"
               style="
                 display: none;
                 border: none;
-                padding: 10px;
+                padding: 10px 0;
                 box-shadow: none;
+                background: transparent;
               "
             >
               <div
                 class="word-display"
                 id="ebbWordDisplay"
-                style="font-size: 20px; margin: 15px 0"
+                style="font-size: 26px; font-weight: bold; margin: 20px 0; text-align: center;"
               ></div>
               <div class="options-grid" id="ebbOptionsGrid"></div>
               <div id="ebbFeedback" class="feedback-msg"></div>
-              <button id="ebbNextBtn" class="success-btn" style="display: none">
-                下一题
+              <button id="ebbNextBtn" class="success-btn" style="display: none; width: 100%; margin-top: 20px; padding: 12px; font-size: 16px;">
+                下一题 ➔
               </button>
+            </div>
+          </div>
+
+          <!-- 👉 右侧：已背单词高频错题排行榜 -->
+          <div class="card chart-card" style="min-height: 480px;">
+            <h3 style="color: #e74c3c; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px;">
+              ⚠️ 已背单词·高频错误排行榜 Top 10
+            </h3>
+            <p style="font-size: 12px; color: var(--text-muted); margin: 8px 0 15px 0;">
+              答错次数较多的重点词汇，优先警示复习。
+            </p>
+            <div class="table-wrapper" style="max-height: 380px; overflow-y: auto;">
+              <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                <thead>
+                  <tr style="border-bottom: 1px solid rgba(255,255,255,0.1); color: var(--text-muted); font-size: 13px;">
+                    <th style="padding: 8px;">排名</th>
+                    <th style="padding: 8px;">单词 / 词组</th>
+                    <th style="padding: 8px; text-align: center;">错题次数</th>
+                    <th style="padding: 8px; text-align: center;">记忆阶段</th>
+                  </tr>
+                </thead>
+                <tbody id="topWrongBodyEbb">
+                  <tr>
+                    <td colspan="4" style="text-align: center; color: var(--text-muted); padding: 30px 0;">
+                      🎉 暂无错题记录，记忆状态极佳！
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- 底部栏：临界遗忘点状态监控 & 预测 -->
+        <div class="analysis-charts-grid" style="margin-top: 20px;">
+          <!-- 临界遗忘点状态监控 -->
+          <div class="card ebb-timeline-panel">
+            <h3>🚨 临界遗忘点状态监控</h3>
+            <div class="ebb-stage-scroller" id="ebbStageContainer" style="max-height: 220px; overflow-y: auto;">
+              <p style="color: var(--text-muted); text-align: center; padding: 20px;">
+                暂无遗忘线队列信息。
+              </p>
+            </div>
+          </div>
+
+          <!-- 未来 7 天复习任务预测 -->
+          <div class="card chart-card">
+            <h3>📅 未来 7 天艾宾浩斯复习负荷预测</h3>
+            <div class="chart-container" style="position: relative; height: 180px;">
+              <canvas id="futureReviewChart"></canvas>
             </div>
           </div>
         </div>
       </div>
-    </div>
     <script src="script.js"></script>
   </body>
 </html>
