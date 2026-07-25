@@ -1464,60 +1464,106 @@ function renderAnalysisCharts(list) {
 }
 
 // ==========================================
-// 独立全局函数 - 更新高频错题排行榜
-// （已从 renderAnalysisCharts 中成功拆分）
+// 独立全局函数 - 更新高频错题排行榜（支持全部显示与多级筛选）
 // ==========================================
 function updateTopWrongTable(list) {
   const dataList = list || (typeof vocabList !== "undefined" ? vocabList : []);
   if (!dataList || dataList.length === 0) return;
 
-  // 1. 筛选出有错误记录的题目，按错误次数降序排列
+  // 1. 过滤出所有有错误记录的题目，按错误次数降序排列
   const wrongList = dataList
     .filter((item) => (item.errorCount || item.wrongCount || 0) > 0 || item.userStatus === "wrong")
     .sort((a, b) => (b.errorCount || b.wrongCount || 1) - (a.errorCount || a.wrongCount || 1));
 
   // 2. 获取 DOM 容器
-  const tbodyMain = document.getElementById("topWrongBody");    // 分析面板榜单
-  const tbodyEbb = document.getElementById("topWrongBodyEbb");  // 艾宾浩斯榜单
-  const tbodyCtph = document.getElementById("ctphWrongBody");   // 错题排行 Tab 页面榜单
+  const tbodyMain = document.getElementById("topWrongBody");    // 数据分析面板 Top5
+  const tbodyEbb = document.getElementById("topWrongBodyEbb");  // 艾宾浩斯面板 Top10
+  const tbodyCtph = document.getElementById("ctphWrongBody");   // 错题排行专属 Tab (展示全部)
+  const tipCount = document.getElementById("ctphTotalCountTip");
 
-  // 空数据处理
+  // 空错题处理
   if (wrongList.length === 0) {
     const emptyHtml = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 30px 0;">🎉 暂无错题记录，状态极佳！</td></tr>`;
     if (tbodyMain) tbodyMain.innerHTML = emptyHtml;
     if (tbodyEbb) tbodyEbb.innerHTML = emptyHtml;
     if (tbodyCtph) tbodyCtph.innerHTML = emptyHtml;
+    if (tipCount) tipCount.innerText = "(共 0 道错题)";
     return;
   }
 
-  // 3. 渲染 错题排行 Tab (显示 Top 20 带正确答案)
+  // ----------------------------------------------------
+  // 3. 渲染 ⚠️ 错题排行 Tab 页面 (显示全部 + 支持动态筛选)
+  // ----------------------------------------------------
   if (tbodyCtph) {
-    const ctphList = wrongList.slice(0, 20);
-    tbodyCtph.innerHTML = ctphList.map((item, index) => `
-      <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-        <td style="padding: 12px; font-weight: bold; color: ${index < 3 ? '#e74c3c' : 'inherit'};">#${index + 1}</td>
-        <td style="padding: 12px;"><strong>${item.word || item.title || "未命名题目"}</strong></td>
-        <td style="padding: 12px; color: var(--success-text);">${item.answer || "--"}</td>
-        <td style="padding: 12px; text-align: center; color: #e74c3c; font-weight: bold;">${item.errorCount || 1} 次</td>
-        <td style="padding: 12px; text-align: center;"><span class="badge">L${item.stage !== undefined ? item.stage : 0}</span></td>
-      </tr>
-    `).join("");
+    // 获取用户选择的筛选阈值
+    const filterSelect = document.getElementById("ctphFilterSelect");
+    const minErrCount = filterSelect ? parseInt(filterSelect.value, 10) || 0 : 0;
+
+    // 过滤满足错误次数要求的错题列表
+    const filteredList = wrongList.filter(
+      (item) => (item.errorCount || item.wrongCount || 1) >= minErrCount
+    );
+
+    // 更新标题处的题目数量提示
+    if (tipCount) {
+      tipCount.innerText = `(共 ${filteredList.length} 道错题${minErrCount > 0 ? `，已过滤 ≥${minErrCount} 次` : ""})`;
+    }
+
+    if (filteredList.length === 0) {
+      tbodyCtph.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 40px 0;">🔍 没有找到答错次数 ≥ ${minErrCount} 次的题目</td></tr>`;
+    } else {
+      // 不截断（slice），完整渲染符合条件的所有错题
+      tbodyCtph.innerHTML = filteredList.map((item, index) => {
+        const errTimes = item.errorCount || item.wrongCount || 1;
+        return `
+          <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+            <td style="padding: 12px; font-weight: bold; color: ${index < 3 ? '#e74c3c' : 'inherit'};">#${index + 1}</td>
+            <td style="padding: 12px;"><strong>${item.word || item.title || "未命名题目"}</strong></td>
+            <td style="padding: 12px; color: var(--success-text);">${item.answer || "--"}</td>
+            <td style="padding: 12px; text-align: center; color: #e74c3c; font-weight: bold;">${errTimes} 次</td>
+            <td style="padding: 12px; text-align: center;"><span class="badge">L${item.stage !== undefined ? item.stage : 0}</span></td>
+          </tr>
+        `;
+      }).join("");
+    }
   }
 
-  // 4. 渲染 分析面板 / 艾宾浩斯 Tab (Top 10 精简版)
+  // ----------------------------------------------------
+  // 4. 渲染 数据分析面板 (Top 5) & 艾宾浩斯面板 (Top 10)
+  // ----------------------------------------------------
   const top10List = wrongList.slice(0, 10);
   const rowsHtml = top10List.map((item, index) => `
     <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
       <td style="padding: 10px; font-weight: bold; color: ${index < 3 ? '#e74c3c' : 'inherit'};">#${index + 1}</td>
       <td style="padding: 10px;"><strong>${item.word || item.title || "未命名题目"}</strong></td>
-      <td style="padding: 10px; text-align: center; color: #e74c3c; font-weight: bold;">${item.errorCount || 1} 次</td>
+      <td style="padding: 10px; text-align: center; color: #e74c3c; font-weight: bold;">${item.errorCount || item.wrongCount || 1} 次</td>
       <td style="padding: 10px; text-align: center;"><span class="badge">L${item.stage !== undefined ? item.stage : 0}</span></td>
     </tr>
   `).join("");
 
-  if (tbodyMain) tbodyMain.innerHTML = rowsHtml;
+  if (tbodyMain) tbodyMain.innerHTML = wrongList.slice(0, 5).map((item, index) => `
+    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+      <td style="padding: 10px; font-weight: bold; color: ${index < 3 ? '#e74c3c' : 'inherit'};">#${index + 1}</td>
+      <td style="padding: 10px;"><strong>${item.word || item.title || "未命名题目"}</strong></td>
+      <td style="padding: 10px; text-align: center; color: #e74c3c; font-weight: bold;">${item.errorCount || item.wrongCount || 1} 次</td>
+      <td style="padding: 10px; text-align: center;"><span class="badge">L${item.stage !== undefined ? item.stage : 0}</span></td>
+    </tr>
+  `).join("");
+
   if (tbodyEbb) tbodyEbb.innerHTML = rowsHtml;
 }
+
+// ----------------------------------------------------
+// 绑定下拉框筛选事件：切换条件时即时重新刷新列表
+// ----------------------------------------------------
+document.addEventListener("DOMContentLoaded", () => {
+  const filterSelect = document.getElementById("ctphFilterSelect");
+  if (filterSelect) {
+    filterSelect.addEventListener("change", () => {
+      updateTopWrongTable(vocabList);
+    });
+  }
+});
 
 
 // ==========================================

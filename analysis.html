@@ -216,17 +216,33 @@
         </div>
       </div>
 
-      <!-- 3. 新建错题排行界面 (ctphTab) -->
+      <!-- 3. 全局错题排行界面 (ctphTab) -->
 <div class="tab-content" id="ctphTab">
   <div class="card" style="min-height: 500px; padding: 20px;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px;">
-      <h2 style="color: #e74c3c; margin: 0;">⚠️ 全库高频错题排行榜 (TOP 20)</h2>
-      <span style="font-size: 13px; color: var(--text-muted);">优先警示答错频次较高的题目</span>
+    <!-- 顶部标题与筛选工具栏 -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+      <div>
+        <h2 style="color: #e74c3c; margin: 0; display: inline-block;">⚠️ 全库错题排行榜</h2>
+        <span id="ctphTotalCountTip" style="font-size: 13px; color: var(--text-muted); margin-left: 10px;">(共 0 道错题)</span>
+      </div>
+      
+      <!-- 🔍 错误次数筛选器 -->
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <label for="ctphFilterSelect" style="font-size: 14px; color: var(--text-muted);">筛选错误次数：</label>
+        <select id="ctphFilterSelect" style="padding: 6px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); background: var(--bg-card, #2c3e50); color: inherit; cursor: pointer; font-size: 14px;">
+          <option value="0">全部错题 (≥1次)</option>
+          <option value="2">高频错题 (≥2次)</option>
+          <option value="3">顽固错题 (≥3次)</option>
+          <option value="5">极危错题 (≥5次)</option>
+        </select>
+      </div>
     </div>
-    <div class="table-wrapper" style="max-height: 500px; overflow-y: auto;">
+
+    <!-- 错题表格列表 -->
+    <div class="table-wrapper" style="max-height: 600px; overflow-y: auto;">
       <table style="width: 100%; border-collapse: collapse; text-align: left;">
         <thead>
-          <tr style="border-bottom: 1px solid rgba(255,255,255,0.1); color: var(--text-muted); font-size: 14px;">
+          <tr style="border-bottom: 1px solid rgba(255,255,255,0.1); color: var(--text-muted); font-size: 14px; position: sticky; top: 0; background: var(--bg-card, #2c3e50); z-index: 2;">
             <th style="padding: 12px;">排名</th>
             <th style="padding: 12px;">题目 / 单词</th>
             <th style="padding: 12px;">正确答案</th>
