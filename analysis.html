@@ -21,6 +21,9 @@
             <button class="tab-btn" data-tab="ebbinghausTab">
               ⏳ 艾宾浩斯复习
             </button>
+            <button class="tab-btn" data-tab="ctphTab">
+    ⚠️ 错题排行
+  </button>
           </div>
         </div>
         <div class="header-controls">
@@ -44,6 +47,11 @@
               <div class="title">已完成答题</div>
               <div class="value" id="statAnswered">0</div>
             </div>
+
+            <div class="metric-card" id="statWrongCard" style="cursor: pointer;" title="点击跳转查看错题排行榜">
+    <div class="title">错题数量 ➔</div>
+    <div class="value var-danger" id="statWrongCount">0</div>
+  </div>
             <div class="metric-card">
               <div class="title">综合正确率</div>
               <div class="value var-success" id="statAccuracy">0%</div>
@@ -207,6 +215,37 @@
           </div>
         </div>
       </div>
+
+      <!-- 3. 新建错题排行界面 (ctphTab) -->
+<div class="tab-content" id="ctphTab">
+  <div class="card" style="min-height: 500px; padding: 20px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px;">
+      <h2 style="color: #e74c3c; margin: 0;">⚠️ 全库高频错题排行榜 (TOP 20)</h2>
+      <span style="font-size: 13px; color: var(--text-muted);">优先警示答错频次较高的题目</span>
+    </div>
+    <div class="table-wrapper" style="max-height: 500px; overflow-y: auto;">
+      <table style="width: 100%; border-collapse: collapse; text-align: left;">
+        <thead>
+          <tr style="border-bottom: 1px solid rgba(255,255,255,0.1); color: var(--text-muted); font-size: 14px;">
+            <th style="padding: 12px;">排名</th>
+            <th style="padding: 12px;">题目 / 单词</th>
+            <th style="padding: 12px;">正确答案</th>
+            <th style="padding: 12px; text-align: center;">答错次数</th>
+            <th style="padding: 12px; text-align: center;">当前熟练度</th>
+          </tr>
+        </thead>
+        <tbody id="ctphWrongBody">
+          <tr>
+            <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 40px 0;">
+              🎉 暂无错题记录，记忆状态极佳！
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
     <script src="script.js"></script>
   </body>
 </html>

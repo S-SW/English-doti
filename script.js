@@ -98,6 +98,18 @@ document.querySelectorAll(".tab-btn").forEach((btn) => {
   });
 });
 
+document.addEventListener("DOMContentLoaded", () => {
+  // 绑定“错题数量”卡片点击事件：点击跳转到 ctph 错题排行界面
+  const statWrongCard = document.getElementById("statWrongCard");
+  if (statWrongCard) {
+    statWrongCard.addEventListener("click", () => {
+      const ctphBtn = document.querySelector('.tab-btn[data-tab="ctphTab"]');
+      if (ctphBtn) ctphBtn.click(); // 触发 Tab 点击，无缝切换
+    });
+  }
+});
+
+
 function initTheme() {
   const savedTheme = localStorage.getItem("theme") || "light";
   document.documentElement.setAttribute("data-theme", savedTheme);
@@ -476,6 +488,7 @@ function handleAnswerCore(index, btn, selectedOpt, isPaper) {
     }));
   }, 0);
   updateEbbinghausSummary();
+  updateTopWrongTable(vocabList);
 }
 
 // 按钮控制：上一题
@@ -590,6 +603,10 @@ function runDataAnalysis() {
   const total = vocabList.length;
   const answered = vocabList.filter((i) => i.userStatus !== "unanswered").length;
   const correctNum = vocabList.filter((i) => i.userStatus === "correct").length;
+  
+  // 👈 计算错题总数
+  const wrongNum = vocabList.filter((i) => (i.errorCount || 0) > 0 || i.userStatus === "wrong").length;
+  
   const acc = answered > 0 ? Math.round((correctNum / answered) * 100) : 0;
 
   const now = Date.now();
@@ -599,11 +616,13 @@ function runDataAnalysis() {
 
   const statTotal = document.getElementById("statTotal");
   const statAnswered = document.getElementById("statAnswered");
+  const statWrongCount = document.getElementById("statWrongCount"); // 👈 错题数 DOM
   const statAccuracy = document.getElementById("statAccuracy");
   const statForgetWarning = document.getElementById("statForgetWarning");
 
   if (statTotal) statTotal.innerText = total;
   if (statAnswered) statAnswered.innerText = answered;
+  if (statWrongCount) statWrongCount.innerText = wrongNum; // 👈 渲染错题数
   if (statAccuracy) statAccuracy.innerText = `${acc}%`;
   if (statForgetWarning) statForgetWarning.innerText = forgetWarnings;
 
@@ -934,11 +953,14 @@ function autoRecoverOnRefresh() {
         renderAnswerCard();
         renderQuizZone();
       }
+      refreshAllViews();
     } catch (e) {
       console.error("恢复现场失败：", e);
     }
   }
   if (exportSnapshotBtn) exportSnapshotBtn.disabled = false;
+
+  
 }
 
 // ==========================================
@@ -1231,229 +1253,294 @@ let stageBarChartInstance = null;
 let futureReviewChartInstance = null;
 
 // ==========================================
-// 多维图表绘制与数据渲染核心函数
+// 数据分析面板核心渲染逻辑（完美对齐 HTML ID）
 // ==========================================
 function renderAnalysisCharts(list) {
-  // 获取当前题库数据
   const dataList = list || (typeof vocabList !== "undefined" ? vocabList : []);
   if (!dataList || dataList.length === 0) return;
 
-  // 1. 数据基础统计
-  const total = dataList.length;
-  let correctCount = 0;
-  let wrongCount = 0;
-  let unansweredCount = 0;
-
-  const stageCounts = { L0: 0, L1: 0, L2: 0, L3: 0 };
-
-  dataList.forEach((item) => {
-    if (item.userStatus === "correct") correctCount++;
-    else if (item.userStatus === "wrong") wrongCount++;
-    else unansweredCount++;
-
-    const stage = item.stage || 0;
-    if (stage === 0) stageCounts.L0++;
-    else if (stage <= 2) stageCounts.L1++;
-    else if (stage <= 5) stageCounts.L2++;
-    else stageCounts.L3++;
-  });
-
-  // 更新“剩余全库预计耗时”
-  const estMinutes = Math.ceil((unansweredCount * 15) / 60);
-  const statEstTime = document.getElementById("statEstTime");
-  if (statEstTime) statEstTime.innerText = `≈ ${estMinutes} 分钟`;
-
-  // 2. 绘制图表 1：艾宾浩斯理论衰减 vs 实际保持率曲线
+  // ----------------------------------------------------
+  // 1. 📉 艾宾浩斯理论衰减 vs 实际记忆保留率曲线
+  // ----------------------------------------------------
   const canvasEbb = document.getElementById("ebbinghausCurveChart");
   if (canvasEbb && typeof Chart !== "undefined") {
-    if (ebbCurveChartInstance) ebbCurveChartInstance.destroy();
+    // 理论保留率数据点 (艾宾浩斯经典曲线 approx)
+    const theoryData = [100, 58.2, 44.2, 35.8, 33.7, 27.8, 25.4, 21.1];
     
-    const answeredTotal = correctCount + wrongCount;
-    const userAccuracy = answeredTotal > 0 ? Math.round((correctCount / answeredTotal) * 100) : 0;
+    // 计算实际保留率：各个阶段（L0-L8）题目中，非错误题目的占比
+    const totalCount = dataList.length;
+    const stageCorrectCounts = Array(8).fill(0);
     
-    ebbCurveChartInstance = new Chart(canvasEbb, {
+    dataList.forEach((item) => {
+      const s = Math.min(Math.max(item.stage || 0, 0), 7);
+      if (item.userStatus === "correct" || item.stage > 0) {
+        stageCorrectCounts[s]++;
+      }
+    });
+
+    // 计算实际保留百分比
+    let accumulated = 0;
+    const actualData = stageCorrectCounts.map((count) => {
+      accumulated += count;
+      return totalCount > 0 ? Math.round((accumulated / totalCount) * 100) : 0;
+    });
+
+    if (window.ebbCurveChartInstance) window.ebbCurveChartInstance.destroy();
+
+    const ctxEbb = canvasEbb.getContext("2d");
+    window.ebbCurveChartInstance = new Chart(ctxEbb, {
       type: "line",
       data: {
-        labels: ["初始", "20分钟", "1小时", "9小时", "1天", "2天", "6天", "31天"],
+        labels: ["5分钟", "30分钟", "12小时", "1天", "2天", "4天", "7天", "15天"],
         datasets: [
           {
-            label: "艾宾浩斯标准保留率 (%)",
-            data: [100, 58.2, 44.2, 35.8, 33.7, 27.8, 25.4, 21.1],
+            label: "艾宾浩斯理论遗忘曲线 (%)",
+            data: theoryData,
             borderColor: "#e74c3c",
+            backgroundColor: "rgba(231, 76, 60, 0.1)",
             borderDash: [5, 5],
             fill: false,
-            tension: 0.3
+            tension: 0.4
           },
           {
-            label: "当前实际记忆保持率 (%)",
-            data: [100, userAccuracy, Math.round(userAccuracy * 0.9), Math.round(userAccuracy * 0.85), Math.round(userAccuracy * 0.8), Math.round(userAccuracy * 0.78), Math.round(userAccuracy * 0.75), Math.round(userAccuracy * 0.72)],
+            label: "实际记忆保留率 (%)",
+            data: actualData,
             borderColor: "#2ecc71",
             backgroundColor: "rgba(46, 204, 113, 0.15)",
             fill: true,
-            tension: 0.3
+            tension: 0.3,
+            pointRadius: 4,
+            pointBackgroundColor: "#2ecc71"
           }
         ]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        scales: { y: { min: 0, max: 100 } }
-      }
-    });
-  }
-
-// 3. 绘制图表 2：正确率与答题分布环形图
-  const canvasPie = document.getElementById("accuracyPieChart");
-  if (canvasPie && typeof Chart !== "undefined") {
-    if (accuracyPieChartInstance) accuracyPieChartInstance.destroy();
-
-    accuracyPieChartInstance = new Chart(canvasPie, {
-      type: "doughnut",
-      data: {
-        labels: ["回答正确", "回答错误", "未解答"],
-        datasets: [{
-          data: [correctCount, wrongCount, unansweredCount],
-          backgroundColor: ["#2ecc71", "#e74c3c", "#4a5568"]
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false, // 关键：禁用强制比例，跟随 css 容器
         plugins: {
-          legend: {
-            position: "right", // 改为右侧排列，节省垂直空间
-            labels: { color: "#e2e8f0", boxWidth: 12, font: { size: 12 } }
-          }
-        }
-      }
-    });
-  }
-
-  // 4. 绘制图表 3：熟练度级别分布柱状图
-  const canvasBar = document.getElementById("stageBarChart");
-  if (canvasBar && typeof Chart !== "undefined") {
-    if (stageBarChartInstance) stageBarChartInstance.destroy();
-
-    stageBarChartInstance = new Chart(canvasBar, {
-      type: "bar",
-      data: {
-        labels: ["L0 未掌握", "L1 初步", "L2 巩固期", "L3 长期记忆"],
-        datasets: [{
-          label: "题目数",
-          data: [stageCounts.L0, stageCounts.L1, stageCounts.L2, stageCounts.L3],
-          backgroundColor: ["#e74c3c", "#f39c12", "#3498db", "#2ecc71"]
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
+          legend: { position: "top" }
+        },
         scales: {
-          x: { ticks: { color: "#e2e8f0" } },
-          y: { ticks: { color: "#e2e8f0" }, beginAtZero: true }
+          y: { beginAtZero: true, max: 100 }
         }
       }
     });
   }
 
-  // 5. 绘制图表 4：未来 7 天艾宾浩斯复习预测柱状图
-  const canvasFuture = document.getElementById("futureReviewChart");
-  if (canvasFuture && typeof Chart !== "undefined") {
-    if (futureReviewChartInstance) futureReviewChartInstance.destroy();
-
-    const futureDays = ["今天", "明天", "后天", "第4天", "第5天", "第6天", "第7天"];
-    const futureCounts = [0, 0, 0, 0, 0, 0, 0];
-    const now = Date.now();
-    const oneDayMs = 24 * 3600 * 1000;
+  // ----------------------------------------------------
+  // 2. 🍩 题目答题状态与正误分布 (匹配 HTML 中的 accuracyPieChart)
+  // ----------------------------------------------------
+  const canvasRate = document.getElementById("accuracyPieChart");
+  if (canvasRate && typeof Chart !== "undefined") {
+    let rightCount = 0;
+    let wrongCount = 0;
+    let unanswerCount = 0;
 
     dataList.forEach((item) => {
-      if (item.nextReviewTime && item.nextReviewTime > 0) {
-        const diffDays = Math.floor((item.nextReviewTime - now) / oneDayMs);
-        if (diffDays >= 0 && diffDays < 7) {
-          futureCounts[diffDays]++;
-        }
-      }
+      // 修正：这里的状态对应答题逻辑中的 "correct"
+      if (item.userStatus === "correct") rightCount++;
+      else if (item.userStatus === "wrong") wrongCount++;
+      else unanswerCount++;
     });
 
-    futureReviewChartInstance = new Chart(canvasFuture, {
-      type: "bar",
+    if (window.accuracyPieChartInstance) window.accuracyPieChartInstance.destroy();
+
+    const ctxRate = canvasRate.getContext("2d");
+    window.accuracyPieChartInstance = new Chart(ctxRate, {
+      type: "doughnut",
       data: {
-        labels: futureDays,
+        labels: ["正确", "错误", "未答"],
         datasets: [{
-          label: "待复习题目数",
-          data: futureCounts,
-          backgroundColor: "#9b59b6"
+          data: [rightCount, wrongCount, unanswerCount],
+          backgroundColor: ["#2ecc71", "#e74c3c", "#95a5a6"],
+          borderWidth: 2
         }]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: {
-          x: { ticks: { color: "#e2e8f0" } },
-          y: { ticks: { color: "#e2e8f0" }, beginAtZero: true }
+        plugins: {
+          legend: { position: "bottom" }
         }
       }
     });
   }
-  // ==========================================
-// 修复：独立全局函数 - 更新高频错题排行榜 (同时更新两个 Tab 的表格)
+
+  // ----------------------------------------------------
+  // 3. 📊 记忆熟练度级别分布 (匹配 HTML 中的 stageBarChart)
+  // ----------------------------------------------------
+  const canvasStage = document.getElementById("stageBarChart");
+  if (canvasStage && typeof Chart !== "undefined") {
+    const stageCounts = [0, 0, 0, 0]; // L0, L1, L2, L3+
+    dataList.forEach((item) => {
+      const s = item.stage || 0;
+      if (s === 0) stageCounts[0]++;
+      else if (s === 1) stageCounts[1]++;
+      else if (s === 2) stageCounts[2]++;
+      else stageCounts[3]++; // L3及以上合并为最高级
+    });
+
+    if (window.stageBarChartInstance) window.stageBarChartInstance.destroy();
+
+    const ctxStage = canvasStage.getContext("2d");
+    window.stageBarChartInstance = new Chart(ctxStage, {
+      type: "bar",
+      data: {
+        labels: ["L0 刚刷/错题", "L1 初始记忆", "L2 巩固阶段", "L3+ 精通熟练"],
+        datasets: [{
+          label: "题目数量",
+          data: stageCounts,
+          backgroundColor: ["#e74c3c", "#f1c40f", "#3498db", "#2ecc71"],
+          borderRadius: 6
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false }
+        },
+        scales: {
+          y: { beginAtZero: true, ticks: { precision: 0 } }
+        }
+      }
+    });
+  }
+
+  // ----------------------------------------------------
+  // 4. 📅 未来 7 天复习预测图表
+  // ----------------------------------------------------
+  const canvasFuture = document.getElementById("futureReviewChart");
+  if (canvasFuture && typeof Chart !== "undefined") {
+    const futureDays = Array(7).fill(0);
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const oneDayMs = 24 * 60 * 60 * 1000;
+
+    dataList.forEach((item) => {
+      if (item.nextReviewTime && item.stage > 0) {
+        const diffDays = Math.floor((item.nextReviewTime - todayStart) / oneDayMs);
+        if (diffDays >= 0 && diffDays < 7) {
+          futureDays[diffDays]++;
+        }
+      }
+    });
+
+    const labels = ["今天", "明天", "后天", "第4天", "第5天", "第6天", "第7天"];
+
+    if (window.futureReviewChartInstance) window.futureReviewChartInstance.destroy();
+
+    const ctxFuture = canvasFuture.getContext("2d");
+    window.futureReviewChartInstance = new Chart(ctxFuture, {
+      type: "line",
+      data: {
+        labels: labels,
+        datasets: [{
+          label: "预计复习量",
+          data: futureDays,
+          borderColor: "#3498db",
+          backgroundColor: "rgba(52, 152, 219, 0.15)",
+          fill: true,
+          tension: 0.3,
+          pointRadius: 4,
+          pointBackgroundColor: "#3498db"
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false }
+        },
+        scales: {
+          y: { beginAtZero: true, ticks: { precision: 0 } }
+        }
+      }
+    });
+  }
+
+  // 5. 同步更新高频错题榜单
+  updateTopWrongTable(dataList);
+}
+
+// ==========================================
+// 独立全局函数 - 更新高频错题排行榜
+// （已从 renderAnalysisCharts 中成功拆分）
 // ==========================================
 function updateTopWrongTable(list) {
   const dataList = list || (typeof vocabList !== "undefined" ? vocabList : []);
   if (!dataList || dataList.length === 0) return;
 
-  // 1. 修正字段：使用 item.errorCount，并兼容 item.wrongCount 和 userStatus
+  // 1. 筛选出有错误记录的题目，按错误次数降序排列
   const wrongList = dataList
-    .filter((item) => {
-      const errs = item.errorCount || item.wrongCount || 0;
-      return errs > 0 || item.userStatus === "wrong";
-    })
-    .sort((a, b) => {
-      const countA = a.errorCount || a.wrongCount || 1;
-      const countB = b.errorCount || b.wrongCount || 1;
-      return countB - countA;
-    })
-    .slice(0, 10); // 取 Top 10
+    .filter((item) => (item.errorCount || item.wrongCount || 0) > 0 || item.userStatus === "wrong")
+    .sort((a, b) => (b.errorCount || b.wrongCount || 1) - (a.errorCount || a.wrongCount || 1));
 
-  // 2. 获取两个 Tab 的表格容器
-  const tbodyMain = document.getElementById("topWrongBody");    // 数据分析 Tab 榜单
-  const tbodyEbb = document.getElementById("topWrongBodyEbb");  // 艾宾浩斯复习 Tab 榜单
+  // 2. 获取 DOM 容器
+  const tbodyMain = document.getElementById("topWrongBody");    // 分析面板榜单
+  const tbodyEbb = document.getElementById("topWrongBodyEbb");  // 艾宾浩斯榜单
+  const tbodyCtph = document.getElementById("ctphWrongBody");   // 错题排行 Tab 页面榜单
 
-  // 3. 无错题时的显示
+  // 空数据处理
   if (wrongList.length === 0) {
-    const emptyHtml = `
-      <tr>
-        <td colspan="4" style="text-align: center; color: var(--text-muted); padding: 30px 0;">
-          🎉 暂无错题记录，记忆状态极佳！
-        </td>
-      </tr>`;
+    const emptyHtml = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 30px 0;">🎉 暂无错题记录，状态极佳！</td></tr>`;
     if (tbodyMain) tbodyMain.innerHTML = emptyHtml;
     if (tbodyEbb) tbodyEbb.innerHTML = emptyHtml;
+    if (tbodyCtph) tbodyCtph.innerHTML = emptyHtml;
     return;
   }
 
-  // 4. 生成多栏 HTML 表格行
-  const rowsHtml = wrongList
-    .map((item, index) => {
-      const wordText = item.word || item.title || "未命名题目";
-      const errCount = item.errorCount || item.wrongCount || 1;
-      const stageLevel = item.stage !== undefined ? `L${item.stage}` : "L0";
-
-      return `
+  // 3. 渲染 错题排行 Tab (显示 Top 20 带正确答案)
+  if (tbodyCtph) {
+    const ctphList = wrongList.slice(0, 20);
+    tbodyCtph.innerHTML = ctphList.map((item, index) => `
       <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-        <td style="padding: 10px; font-weight: bold; color: ${index < 3 ? '#e74c3c' : 'inherit'};">#${index + 1}</td>
-        <td style="padding: 10px;"><strong>${wordText}</strong></td>
-        <td style="padding: 10px; text-align: center; color: #e74c3c; font-weight: bold;">${errCount} 次</td>
-        <td style="padding: 10px; text-align: center;"><span class="badge">${stageLevel}</span></td>
+        <td style="padding: 12px; font-weight: bold; color: ${index < 3 ? '#e74c3c' : 'inherit'};">#${index + 1}</td>
+        <td style="padding: 12px;"><strong>${item.word || item.title || "未命名题目"}</strong></td>
+        <td style="padding: 12px; color: var(--success-text);">${item.answer || "--"}</td>
+        <td style="padding: 12px; text-align: center; color: #e74c3c; font-weight: bold;">${item.errorCount || 1} 次</td>
+        <td style="padding: 12px; text-align: center;"><span class="badge">L${item.stage !== undefined ? item.stage : 0}</span></td>
       </tr>
-    `;
-    })
-    .join("");
+    `).join("");
+  }
 
-  // 5. 渲染页面
+  // 4. 渲染 分析面板 / 艾宾浩斯 Tab (Top 10 精简版)
+  const top10List = wrongList.slice(0, 10);
+  const rowsHtml = top10List.map((item, index) => `
+    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+      <td style="padding: 10px; font-weight: bold; color: ${index < 3 ? '#e74c3c' : 'inherit'};">#${index + 1}</td>
+      <td style="padding: 10px;"><strong>${item.word || item.title || "未命名题目"}</strong></td>
+      <td style="padding: 10px; text-align: center; color: #e74c3c; font-weight: bold;">${item.errorCount || 1} 次</td>
+      <td style="padding: 10px; text-align: center;"><span class="badge">L${item.stage !== undefined ? item.stage : 0}</span></td>
+    </tr>
+  `).join("");
+
   if (tbodyMain) tbodyMain.innerHTML = rowsHtml;
   if (tbodyEbb) tbodyEbb.innerHTML = rowsHtml;
 }
-}
 
+
+// ==========================================
+// 全局一键刷新所有分析与预测视图
+// ==========================================
+function refreshAllViews() {
+  if (!vocabList || vocabList.length === 0) return;
+
+  // 1. 刷新艾宾浩斯复习预测概览
+  if (typeof updateEbbinghausSummary === "function") {
+    updateEbbinghausSummary();
+  }
+
+  // 2. 刷新数据多维分析指标与图表
+  if (typeof runDataAnalysis === "function") {
+    runDataAnalysis();
+  }
+  if (typeof renderAnalysisCharts === "function") {
+    renderAnalysisCharts(vocabList);
+  }
+
+  // 3. 刷新高频错题排行榜
+  if (typeof updateTopWrongTable === "function") {
+    updateTopWrongTable(vocabList);
+  }
+}
