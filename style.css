@@ -380,14 +380,14 @@ a.tab-btn {
   box-shadow: 0 0 0 2px var(--primary);
 }
 .answer-item.correct {
-  background-color: var(--success) !important;
-  border-color: var(--success) !important;
-  color: white !important;
+    background-color: #426a57 !important;
+    border-color: #48a578 !important;
+    color: white !important;
 }
 .answer-item.wrong {
-  background-color: var(--danger) !important;
-  border-color: var(--danger) !important;
-  color: white !important;
+    background-color: #ec5353b0 !important;
+    border-color: #ff5252a3 !important;
+    color: white !important;
 }
 
 .table-wrapper {
