@@ -13,7 +13,9 @@
           <h1>🧠 智能一体化高对比刷题系统</h1>
           <div class="nav-tabs">
             <a href="index.html" class="tab-btn active">📝 今日刷题</a>
-            <a href="analysis.html" class="tab-btn">📊 数据分析与艾宾浩斯复习</a>
+            <a href="analysis.html" class="tab-btn"
+              >📊 数据分析与艾宾浩斯复习</a
+            >
           </div>
         </div>
         <div class="header-controls">
@@ -56,7 +58,9 @@
           <!-- 单题模式导航按钮组（始终显示并贴近下方） -->
           <div class="nav-btn-group" id="navBtnGroup">
             <button id="prevBtn" class="nav-action-btn">⬅️ 上一题</button>
-            <button id="nextBtn" class="nav-action-btn primary">下一题 ➡️</button>
+            <button id="nextBtn" class="nav-action-btn primary">
+              下一题 ➡️
+            </button>
           </div>
         </div>
 
@@ -81,6 +85,22 @@
             <div class="action-btn-group">
               <button id="exportWrongBtn" class="export-btn" disabled>
                 📥 导出当前错题集
+              </button>
+              <button id="exportSnapshotBtn" class="export-btn" disabled>
+                📦 导出全量快照 (JSON)
+              </button>
+              <input
+                type="file"
+                id="importSnapshotInput"
+                accept=".json"
+                style="display: none"
+              />
+              <button
+                id="importSnapshotBtn"
+                class="export-btn"
+                style="background-color: #27ae60; color: white"
+              >
+                📤 导入并恢复快照
               </button>
             </div>
           </div>

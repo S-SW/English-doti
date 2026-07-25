@@ -28,7 +28,9 @@ const exportWrongBtn = document.getElementById("exportWrongBtn");
 const prevBtn = document.getElementById("prevBtn");
 const nextBtn = document.getElementById("nextBtn");
 const navBtnGroup = document.getElementById("navBtnGroup");
-
+const exportSnapshotBtn = document.getElementById("exportSnapshotBtn");
+const importSnapshotBtn = document.getElementById("importSnapshotBtn");
+const importSnapshotInput = document.getElementById("importSnapshotInput");
 
 // ==========================================
 // 缓存持久化逻辑
@@ -927,7 +929,157 @@ function autoRecoverOnRefresh() {
       console.error("恢复现场失败：", e);
     }
   }
+  if (exportSnapshotBtn) exportSnapshotBtn.disabled = false;
 }
+
+// ==========================================
+// 全量数据快照导出逻辑 (包含题目、作答记录、遗忘曲线)
+// ==========================================
+if (exportSnapshotBtn) {
+  exportSnapshotBtn.addEventListener("click", () => {
+    if (!vocabList || vocabList.length === 0) {
+      alert("当前暂无题库数据可供导出！");
+      return;
+    }
+
+    // 构建完整数据快照对象
+    const snapshotData = {
+      version: "1.0",
+      exportTime: new Date().toLocaleString(),
+      exportTimestamp: Date.now(),
+      dbKey: currentDbKey,
+      currentIndex: currentIndex,
+      totalCount: vocabList.length,
+      // 包含每道题的完整题目数据、作答历史记录、遗忘曲线 stage 及 nextReviewTime
+      vocabList: vocabList.map((item) => ({
+        id: item.id,
+        word: item.word,
+        answer: item.answer,
+        options: item.options,
+        rawOptions: item.rawOptions,
+        errorCount: item.errorCount,
+        stage: item.stage,                      // 艾宾浩斯记忆阶段 (L0-L8)
+        userStatus: item.userStatus,            // 用户作答状态 (unanswered/correct/wrong)
+        selectedAnswer: item.selectedAnswer,    // 用户的选择
+        nextReviewTime: item.nextReviewTime     // 下一次临界复习时间戳
+      }))
+    };
+
+    // 转换为格式化的 JSON 文本并下载
+    const jsonStr = JSON.stringify(snapshotData, null, 2);
+    const blob = new Blob([jsonStr], { type: "application/json;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+
+    // 解析当前使用的文件名
+    let fileName = "题库全量快照";
+    if (currentDbKey && currentDbKey.startsWith("EBB_DATA_")) {
+      const prefixLen = "EBB_DATA_".length;
+      const lastUnderscoreIndex = currentDbKey.lastIndexOf("_");
+      if (lastUnderscoreIndex > prefixLen) {
+        fileName = currentDbKey.substring(prefixLen, lastUnderscoreIndex);
+      }
+    }
+
+    const dateStr = new Date().toISOString().slice(0, 10);
+    link.download = `${fileName}_全量快照_${dateStr}.json`;
+    link.click();
+  });
+}
+// ==========================================
+// 全量数据快照导入与恢复逻辑 (已适配当前脚本方法)
+// ==========================================
+
+// 点击“导入并恢复快照”按钮触发文件选择框
+if (importSnapshotBtn && importSnapshotInput) {
+  importSnapshotBtn.addEventListener("click", () => {
+    importSnapshotInput.value = ""; // 清空上次选择，允许重复导入同一文件
+    importSnapshotInput.click();
+  });
+
+  // 监听快照文件上传
+  importSnapshotInput.addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function (evt) {
+      try {
+        const snapshotData = JSON.parse(evt.target.result);
+
+        // 验证快照格式是否合法
+        if (!snapshotData || !Array.isArray(snapshotData.vocabList)) {
+          alert("导入失败：文件格式不符合标准快照要求！");
+          return;
+        }
+
+        // 提示用户确认覆盖
+        const confirmRestore = confirm(
+          `确定要恢复该快照吗？\n` +
+          `• 导出时间：${snapshotData.exportTime || "未知"}\n` +
+          `• 题目数量：${snapshotData.vocabList.length} 题\n` +
+          `警告：当前正在进行的答题进度将被覆盖！`
+        );
+
+        if (!confirmRestore) return;
+
+        // 1. 恢复内存中的全局变量状态
+        vocabList = snapshotData.vocabList;
+        currentIndex = typeof snapshotData.currentIndex === "number" ? snapshotData.currentIndex : 0;
+        
+        // 生成或使用数据库 Key
+        currentDbKey = snapshotData.dbKey || `EBB_RESTORED_${Date.now()}`;
+
+        // 边界检查：防止索引越界
+        if (currentIndex >= vocabList.length) {
+          currentIndex = Math.max(0, vocabList.length - 1);
+        }
+
+        // 2. 将恢复后的数据写入 LocalStorage 进行持久化
+        saveProgressToLocal();
+
+        // 3. 更新界面顶部文件名显示
+        const fileStatusText = document.getElementById("fileStatusText");
+        if (fileStatusText && currentDbKey.startsWith("EBB_DATA_")) {
+          const prefixLen = "EBB_DATA_".length;
+          const lastUnderscoreIndex = currentDbKey.lastIndexOf("_");
+          if (lastUnderscoreIndex > prefixLen) {
+            const fileName = currentDbKey.substring(prefixLen, lastUnderscoreIndex);
+            fileStatusText.innerText = `${fileName} (来自快照)`;
+            fileStatusText.style.color = "var(--success-text)";
+          }
+        }
+
+        // 4. 解锁右侧面板容器及功能按钮
+        if (dashboardZone) {
+          dashboardZone.style.opacity = "1";
+          dashboardZone.style.pointerEvents = "auto";
+        }
+        if (answerCardZone) {
+          answerCardZone.style.opacity = "1";
+          answerCardZone.style.pointerEvents = "auto";
+        }
+        if (exportWrongBtn) exportWrongBtn.disabled = false;
+        if (exportSnapshotBtn) exportSnapshotBtn.disabled = false;
+
+        // 5. 调用系统自带函数重新渲染全部 UI 页面
+        renderDashboard();           // 重新生成仪表盘
+        renderAnswerCard();          // 重新生成右侧答题卡
+        renderQuizZone();            // 重新装载刷题主区域
+        updateEbbinghausSummary();    // 更新艾宾浩斯复习预测概览
+
+        alert("🎉 恭喜！全量数据快照已成功恢复！");
+
+      } catch (err) {
+        console.error("解析快照文件出错：", err);
+        alert("导入失败：读取快照文件时发生错误，请确认是否为正确的 JSON 快照文件。");
+      }
+    };
+
+    reader.readAsText(file, "utf-8");
+  });
+}
+
 
 window.addEventListener("DOMContentLoaded", autoRecoverOnRefresh);
 // ==========================================
