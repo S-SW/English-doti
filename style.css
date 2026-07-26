@@ -820,3 +820,25 @@ button:disabled {
   width: 100% !important;
   height: 100% !important;
 }
+
+/* 单词发音按钮样式 */
+.audio-play-btn {
+  background: transparent;
+  border: none;
+  font-size: 1.2rem;
+  cursor: pointer;
+  margin-left: 8px;
+  padding: 4px 8px;
+  border-radius: 50%;
+  transition: transform 0.15s ease, background-color 0.2s ease;
+  vertical-align: middle;
+}
+
+.audio-play-btn:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+  transform: scale(1.15);
+}
+
+.audio-play-btn:active {
+  transform: scale(0.95);
+}

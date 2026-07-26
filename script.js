@@ -385,8 +385,16 @@ function renderQuizZone() {
       progressBar.style.width = `${((currentIndex + 1) / vocabList.length) * 100}%`;
     }
 
-    const wordDisplay = document.getElementById("wordDisplay");
-    if (wordDisplay) wordDisplay.innerText = item.word;
+const wordDisplay = document.getElementById("wordDisplay");
+if (wordDisplay) {
+  // 生成单词文本 + 🔊 播放按钮
+  wordDisplay.innerHTML = `
+    <span>${item.word}</span>
+    <button type="button" class="audio-play-btn" title="朗读发音" onclick="speakWord('${item.word.replace(/'/g, "\\'")}')">
+      🔊
+    </button>
+  `;
+}
 
     const grid = document.getElementById("optionsGrid");
     const feed = document.getElementById("feedback");
@@ -1627,4 +1635,21 @@ function refreshAllViews() {
   if (typeof updateTopWrongTable === "function") {
     updateTopWrongTable(vocabList);
   }
+}
+// ==========================================
+// 单词发音 (TTS 语音合成)
+// ==========================================
+function speakWord(word) {
+  if (!word) return;
+  // 停止当前正在播放的声音
+  window.speechSynthesis.cancel();
+  
+  // 提取单词部分（防止把音标 [ad'vaiz] 一起读出来）
+  const cleanWord = word.split('[')[0].trim();
+  
+  const utterance = new SpeechSynthesisUtterance(cleanWord);
+  utterance.lang = 'en-US'; // 设置为美式英语 (如果是英式可设为 'en-GB')
+  utterance.rate = 0.9;     // 语速设置为 0.9，稍微慢一点更清晰
+  
+  window.speechSynthesis.speak(utterance);
 }
