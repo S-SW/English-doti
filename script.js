@@ -6,6 +6,8 @@ let currentIndex = 0;
 let isFullPaperMode = false;
 let currentDbKey = ""; // 当前文件的本地缓存唯一识别 Key
 let isAutoNextEnabled = true;
+let isAutoSpeakEnabled = true; // ✨ 新增：下一题自动朗读单词开关状态（默认开启）
+
 
 // 艾宾浩斯时间跨度表 (单位：毫秒)
 const EBB_INTERVALS = [
@@ -122,6 +124,23 @@ if (autoNextToggle) {
   autoNextToggle.addEventListener("change", (e) => {
     isAutoNextEnabled = e.target.checked;
     localStorage.setItem("EBB_AUTO_NEXT_ENABLED", isAutoNextEnabled);
+  });
+}
+
+// ✨【新增】初始化“下一题自动朗读单词”开关状态
+const autoSpeakToggle = document.getElementById("autoSpeakToggle");
+if (autoSpeakToggle) {
+  const savedAutoSpeak = localStorage.getItem("EBB_AUTO_SPEAK_ENABLED");
+  if (savedAutoSpeak !== null) {
+    isAutoSpeakEnabled = savedAutoSpeak === "true";
+    autoSpeakToggle.checked = isAutoSpeakEnabled;
+  } else {
+    autoSpeakToggle.checked = true; // 默认开启
+  }
+
+  autoSpeakToggle.addEventListener("change", (e) => {
+    isAutoSpeakEnabled = e.target.checked;
+    localStorage.setItem("EBB_AUTO_SPEAK_ENABLED", isAutoSpeakEnabled);
   });
 }
 
@@ -296,12 +315,12 @@ function renderQuizZone() {
   if (isFullPaperMode) {
     if (progressContainer) progressContainer.style.display = "none";
     if (quizHeader) quizHeader.style.display = "none";
-    if (navBtnGroup) navBtnGroup.style.display = "none"; // 全卷模式下隐藏导航按钮组
+    if (navBtnGroup) navBtnGroup.style.display = "none";
 
     dynamicContent.innerHTML = "";
     dynamicContent.classList.add("full-paper-scroll");
 
-    // 2. 事件委托：统一监听容器点击
+    // 事件委托：统一监听容器点击
     dynamicContent.onclick = (e) => {
       const btn = e.target.closest(".opt-btn");
       if (!btn || btn.disabled) return;
@@ -314,7 +333,7 @@ function renderQuizZone() {
       }
     };
 
-    // 3. 极轻量占位骨架
+    // 占位骨架
     const fragment = document.createDocumentFragment();
     vocabList.forEach((item, index) => {
       const block = document.createElement("div");
@@ -322,14 +341,12 @@ function renderQuizZone() {
       block.id = `paper-q-${index}`;
       block.dataset.index = index;
       block.dataset.isRendered = "false";
-
       block.style.minHeight = "160px";
-
       fragment.appendChild(block);
     });
     dynamicContent.appendChild(fragment);
 
-    // 4. 懒加载观察器：滑动到视口前 300px 时才渲染内部节点
+    // 懒加载观察器
     paperObserver = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -343,20 +360,17 @@ function renderQuizZone() {
           }
         });
       },
-      {
-        root: dynamicContent,
-        rootMargin: "300px 0px",
-      },
+      { root: dynamicContent, rootMargin: "300px 0px" }
     );
 
-    // 绑定观察
     const blocks = dynamicContent.querySelectorAll(".paper-item-block");
     blocks.forEach((el) => paperObserver.observe(el));
+
   } else {
-    // ---------------- 单题模式逻辑 ----------------
+    // ---------------- ✨ 单题模式（今日刷题） ----------------
     if (progressContainer) progressContainer.style.display = "block";
     if (quizHeader) quizHeader.style.display = "flex";
-    if (navBtnGroup) navBtnGroup.style.display = "flex"; // 单题模式下始终保持显示
+    if (navBtnGroup) navBtnGroup.style.display = "flex";
 
     dynamicContent.classList.remove("full-paper-scroll");
     dynamicContent.onclick = null;
@@ -367,11 +381,15 @@ function renderQuizZone() {
       <div id="feedback" class="feedback-msg"></div>
     `;
 
+    // 防越界保护
     if (currentIndex >= vocabList.length) {
       currentIndex = vocabList.length - 1;
     }
+    if (currentIndex < 0) currentIndex = 0;
 
     const item = vocabList[currentIndex];
+
+    // 更新索引 & 熟练度 Badge
     const quizIndex = document.getElementById("quizIndex");
     if (quizIndex) {
       quizIndex.innerText = `题目：${currentIndex + 1} / ${vocabList.length}`;
@@ -388,17 +406,18 @@ function renderQuizZone() {
       progressBar.style.width = `${((currentIndex + 1) / vocabList.length) * 100}%`;
     }
 
+    // 渲染单词与发音按钮
     const wordDisplay = document.getElementById("wordDisplay");
     if (wordDisplay) {
-      // 生成单词文本 + 🔊 播放按钮
       wordDisplay.innerHTML = `
-    <span>${item.word}</span>
-    <button type="button" class="audio-play-btn" title="朗读发音" onclick="speakWord('${item.word.replace(/'/g, "\\'")}')">
-      🔊
-    </button>
-  `;
+        <span>${item.word}</span>
+        <button type="button" class="audio-play-btn" title="朗读发音" onclick="speakWord('${item.word.replace(/'/g, "\\'")}')">
+          🔊
+        </button>
+      `;
     }
 
+    // 渲染选项按钮
     const grid = document.getElementById("optionsGrid");
     const feed = document.getElementById("feedback");
 
@@ -427,10 +446,15 @@ function renderQuizZone() {
       }
       grid.appendChild(btn);
     });
+
+    // ✨【核心修复】：在单题渲染成功后，确保处于“自动朗读开启”状态时立刻朗读当前单词！
+    if (typeof isAutoSpeakEnabled === "undefined" || isAutoSpeakEnabled) {
+      speakWord(item.word);
+    }
   }
 
+  // 同步更新右侧答题卡高亮
   updateActiveAnswerCardItem();
-  speakWord(item.word);
 }
 
 // 辅助渲染函数
@@ -833,6 +857,7 @@ function loadReviewQuestion() {
   if (currentReviewPointer >= currentReviewIndexList.length) {
     alert("✨ 恭喜！当前批次的到期复习题目已全部剿灭！");
     renderEbbinghausView();
+    updateEbbinghausSummary();
     return;
   }
 
@@ -843,18 +868,17 @@ function loadReviewQuestion() {
   if (feed) feed.innerText = "";
   if (ebbNextBtn) ebbNextBtn.style.display = "none";
 
-// 找到这部分代码并修改：
   const ebbWordDisplay = document.getElementById("ebbWordDisplay");
   if (ebbWordDisplay) {
-    // 渲染单词文本 + 🔊 播放按钮
     ebbWordDisplay.innerHTML = `
       <span>【复习第 ${item.id} 题】 ${item.word}</span>
       <button type="button" class="audio-play-btn" title="朗读发音" onclick="speakWord('${item.word.replace(/'/g, "\\'")}')">
         🔊
       </button>
     `;
-    // 加载题目时自动朗读单词
-    speakWord(item.word);
+    if (isAutoSpeakEnabled) {
+      speakWord(item.word);
+    }
   }
 
   if (grid) {
@@ -868,6 +892,7 @@ function loadReviewQuestion() {
         buttons.forEach((b) => (b.disabled = true));
 
         if (option === item.answer) {
+          // ---------------- 【答对逻辑】 ----------------
           btn.classList.add("correct");
           if (feed) {
             feed.innerText = "🎉 复习成功！记忆评级已升级提升。";
@@ -881,29 +906,34 @@ function loadReviewQuestion() {
           item.userStatus = "correct";
 
           saveProgressToLocal();
+          updateEbbinghausSummary(); // 即时更新顶部概览
 
-          // ----------------【新增：答对自动跳转逻辑】----------------
           setTimeout(() => {
             currentReviewPointer++;
+            renderEbbinghausView(); // 自动跳转前刷新侧边栏
             loadReviewQuestion();
-          }, 200); // 600毫秒延迟，既有视觉反馈，刷题节奏又顺畅
+          }, 350); // 留出 350ms 视觉反馈时间
         } else {
+          // ---------------- 【答错逻辑】 ----------------
           btn.classList.add("wrong");
           if (feed) {
-            feed.innerText = `❌ 复习再次犯错！惩罚降回L0，5分钟后重新排队。 正确答案是：${item.answer}`;
+            feed.innerText = `❌ 复习再次犯错！惩罚降回 L0，5分钟后重新排队。正确答案是：${item.answer}`;
             feed.style.color = "var(--danger-text)";
           }
           item.stage = 0;
           item.errorCount++;
           item.nextReviewTime = Date.now() + EBB_INTERVALS[0];
           item.userStatus = "wrong";
+          
           buttons.forEach((b) => {
             if (b.innerText === item.answer) b.classList.add("correct");
           });
 
-          // 答错时不跳转，显示“下一题”按钮，由用户手动确认
+          // 显示“下一题”按钮，停留在当前页等待用户确认
           if (ebbNextBtn) ebbNextBtn.style.display = "block";
+          
           saveProgressToLocal();
+          updateEbbinghausSummary(); // ❌ 移除渲染 renderEbbinghausView()，防止页面直接被刷新跳过
         }
       };
       grid.appendChild(btn);
@@ -915,6 +945,7 @@ const ebbNextBtn = document.getElementById("ebbNextBtn");
 if (ebbNextBtn) {
   ebbNextBtn.addEventListener("click", () => {
     currentReviewPointer++;
+    renderEbbinghausView();
     loadReviewQuestion();
   });
 }

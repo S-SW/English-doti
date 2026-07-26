@@ -856,3 +856,13 @@ button:disabled {
 .audio-play-btn:hover {
   transform: scale(1.2);
 }
+
+/* 修改艾宾浩斯复习界面的【下一题】按钮，使其颜色与答对选项保持一致 */
+#ebbNextBtn {
+  background-color: var(--success-bg) !important;
+  color: var(--success-text) !important;
+  border: 2px solid var(--success) !important;
+  font-weight: 800 !important;
+  box-shadow: none !important;
+  transition: all 0.2s ease;
+}
