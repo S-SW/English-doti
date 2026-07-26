@@ -9,14 +9,14 @@ let isAutoNextEnabled = true;
 
 // 艾宾浩斯时间跨度表 (单位：毫秒)
 const EBB_INTERVALS = [
-  5 * 60 * 1000,          // L0 -> L1: 5分钟
-  30 * 60 * 1000,         // L1 -> L2: 30分钟
-  12 * 60 * 60 * 1000,    // L2 -> L3: 12小时
+  5 * 60 * 1000, // L0 -> L1: 5分钟
+  30 * 60 * 1000, // L1 -> L2: 30分钟
+  12 * 60 * 60 * 1000, // L2 -> L3: 12小时
   1 * 24 * 60 * 60 * 1000, // L3 -> L4: 1天
   2 * 24 * 60 * 60 * 1000, // L4 -> L5: 2天
   4 * 24 * 60 * 60 * 1000, // L5 -> L6: 4天
   7 * 24 * 60 * 60 * 1000, // L6 -> L7: 7天
-  15 * 24 * 60 * 60 * 1000 // L7 -> L8: 15天
+  15 * 24 * 60 * 60 * 1000, // L7 -> L8: 15天
 ];
 
 // DOM 节点引用
@@ -43,9 +43,9 @@ function saveProgressToLocal() {
 
   const fileState = {
     currentIndex: currentIndex,
-    savedVocabList: vocabList
+    savedVocabList: vocabList,
   };
-  
+
   localStorage.setItem(currentDbKey, JSON.stringify(fileState));
   localStorage.setItem("EBB_QUIZ_CURRENT_ACTIVE_KEY", currentDbKey);
 }
@@ -59,7 +59,7 @@ function loadProgressFromLocal(fileName, totalCount) {
       if (parsed.savedVocabList && parsed.savedVocabList.length > 0) {
         return {
           savedVocabList: parsed.savedVocabList,
-          currentIndex: parsed.currentIndex || 0
+          currentIndex: parsed.currentIndex || 0,
         };
       }
     } catch (e) {
@@ -75,7 +75,7 @@ if (modeToggle) {
   modeToggle.addEventListener("change", (e) => {
     isFullPaperMode = e.target.checked;
 
-// ✨ 全卷模式不需要切题，自动隐藏“自动跳转”开关；单题模式下显示
+    // ✨ 全卷模式不需要切题，自动隐藏“自动跳转”开关；单题模式下显示
     const autoNextSwitchBox = document.getElementById("autoNextSwitchBox");
     if (autoNextSwitchBox) {
       autoNextSwitchBox.style.display = isFullPaperMode ? "none" : "flex";
@@ -86,8 +86,12 @@ if (modeToggle) {
 
 document.querySelectorAll(".tab-btn").forEach((btn) => {
   btn.addEventListener("click", () => {
-    document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
-    document.querySelectorAll(".tab-content").forEach((c) => c.classList.remove("active"));
+    document
+      .querySelectorAll(".tab-btn")
+      .forEach((b) => b.classList.remove("active"));
+    document
+      .querySelectorAll(".tab-content")
+      .forEach((c) => c.classList.remove("active"));
 
     btn.classList.add("active");
     const targetTab = btn.getAttribute("data-tab");
@@ -106,7 +110,6 @@ document.querySelectorAll(".tab-btn").forEach((btn) => {
   });
 });
 
-
 // 初始化答对自动跳转开关状态
 if (autoNextToggle) {
   // 读取用户保存在本地的偏好设置
@@ -122,7 +125,6 @@ if (autoNextToggle) {
   });
 }
 
-
 document.addEventListener("DOMContentLoaded", () => {
   // 绑定“错题数量”卡片点击事件：点击跳转到 ctph 错题排行界面
   const statWrongCard = document.getElementById("statWrongCard");
@@ -134,21 +136,23 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 });
 
-
 function initTheme() {
   const savedTheme = localStorage.getItem("theme") || "light";
   document.documentElement.setAttribute("data-theme", savedTheme);
   if (themeToggleBtn) {
-    themeToggleBtn.innerHTML = savedTheme === "dark" ? "<span>☀️</span>" : "<span>🌙</span>";
+    themeToggleBtn.innerHTML =
+      savedTheme === "dark" ? "<span>☀️</span>" : "<span>🌙</span>";
   }
 }
 
 if (themeToggleBtn) {
   themeToggleBtn.addEventListener("click", () => {
-    const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+    const isDark =
+      document.documentElement.getAttribute("data-theme") === "dark";
     const nextTheme = isDark ? "light" : "dark";
     document.documentElement.setAttribute("data-theme", nextTheme);
-    themeToggleBtn.innerHTML = nextTheme === "dark" ? "<span>☀️</span>" : "<span>🌙</span>";
+    themeToggleBtn.innerHTML =
+      nextTheme === "dark" ? "<span>☀️</span>" : "<span>🌙</span>";
     localStorage.setItem("theme", nextTheme);
   });
 }
@@ -176,7 +180,7 @@ if (vocabFileInput) {
 
     // 1. 生成新文件的数据库 Key
     const newDbKey = `EBB_DATA_${file.name}_${rawList.length}`;
-    
+
     // 2. 尝试读取这个文件专属的本地记录
     const savedRecord = loadProgressFromLocal(file.name, rawList.length);
 
@@ -202,7 +206,7 @@ if (vocabFileInput) {
           stage: 0,
           userStatus: "unanswered",
           selectedAnswer: null,
-          nextReviewTime: 0
+          nextReviewTime: 0,
         };
       });
     }
@@ -259,7 +263,7 @@ function parseNewFormatFile(file) {
               stage: 0,
               userStatus: "unanswered",
               selectedAnswer: null,
-              nextReviewTime: 0
+              nextReviewTime: 0,
             };
           }
           return null;
@@ -317,8 +321,8 @@ function renderQuizZone() {
       block.className = `paper-item-block ${item.userStatus}`;
       block.id = `paper-q-${index}`;
       block.dataset.index = index;
-      block.dataset.isRendered = "false"; 
-      
+      block.dataset.isRendered = "false";
+
       block.style.minHeight = "160px";
 
       fragment.appendChild(block);
@@ -341,14 +345,13 @@ function renderQuizZone() {
       },
       {
         root: dynamicContent,
-        rootMargin: "300px 0px"
-      }
+        rootMargin: "300px 0px",
+      },
     );
 
     // 绑定观察
     const blocks = dynamicContent.querySelectorAll(".paper-item-block");
     blocks.forEach((el) => paperObserver.observe(el));
-
   } else {
     // ---------------- 单题模式逻辑 ----------------
     if (progressContainer) progressContainer.style.display = "block";
@@ -385,16 +388,16 @@ function renderQuizZone() {
       progressBar.style.width = `${((currentIndex + 1) / vocabList.length) * 100}%`;
     }
 
-const wordDisplay = document.getElementById("wordDisplay");
-if (wordDisplay) {
-  // 生成单词文本 + 🔊 播放按钮
-  wordDisplay.innerHTML = `
+    const wordDisplay = document.getElementById("wordDisplay");
+    if (wordDisplay) {
+      // 生成单词文本 + 🔊 播放按钮
+      wordDisplay.innerHTML = `
     <span>${item.word}</span>
     <button type="button" class="audio-play-btn" title="朗读发音" onclick="speakWord('${item.word.replace(/'/g, "\\'")}')">
       🔊
     </button>
   `;
-}
+    }
 
     const grid = document.getElementById("optionsGrid");
     const feed = document.getElementById("feedback");
@@ -410,8 +413,14 @@ if (wordDisplay) {
           btn.classList.add("wrong");
         }
         if (feed) {
-          feed.innerText = item.userStatus === "correct" ? "🎉 回答正确！" : `❌ 正确答案：${item.answer}`;
-          feed.style.color = item.userStatus === "correct" ? "var(--success-text)" : "var(--danger-text)";
+          feed.innerText =
+            item.userStatus === "correct"
+              ? "🎉 回答正确！"
+              : `❌ 正确答案：${item.answer}`;
+          feed.style.color =
+            item.userStatus === "correct"
+              ? "var(--success-text)"
+              : "var(--danger-text)";
         }
       } else {
         btn.onclick = () => handleAnswerCore(currentIndex, btn, option, false);
@@ -421,6 +430,7 @@ if (wordDisplay) {
   }
 
   updateActiveAnswerCardItem();
+  speakWord(item.word);
 }
 
 // 辅助渲染函数
@@ -438,7 +448,8 @@ function renderSinglePaperBlock(container, index) {
     if (item.userStatus !== "unanswered") {
       disabledAttr = "disabled";
       if (option === item.answer) extraClass += " correct";
-      if (option === item.selectedAnswer && option !== item.answer) extraClass += " wrong";
+      if (option === item.selectedAnswer && option !== item.answer)
+        extraClass += " wrong";
     }
 
     optionsHTML += `<button class="opt-btn ${extraClass}" ${disabledAttr} data-qindex="${index}" data-optval="${option}">${option}</button>`;
@@ -474,7 +485,8 @@ function handleAnswerCore(index, btn, selectedOpt, isPaper) {
   if (selectedOpt === item.answer) {
     item.userStatus = "correct";
     if (item.stage < 8) item.stage++;
-    const interval = EBB_INTERVALS[item.stage - 1] || EBB_INTERVALS[EBB_INTERVALS.length - 1];
+    const interval =
+      EBB_INTERVALS[item.stage - 1] || EBB_INTERVALS[EBB_INTERVALS.length - 1];
     item.nextReviewTime = now + interval;
   } else {
     item.userStatus = "wrong";
@@ -487,7 +499,7 @@ function handleAnswerCore(index, btn, selectedOpt, isPaper) {
 
   const parentContainer = btn.parentElement;
   const allBtns = parentContainer.querySelectorAll(".opt-btn");
-  
+
   allBtns.forEach((b) => {
     b.disabled = true;
     if (b.dataset.optval === item.answer || b.innerText === item.answer) {
@@ -498,13 +510,21 @@ function handleAnswerCore(index, btn, selectedOpt, isPaper) {
     }
   });
 
-  const block = isPaper ? btn.closest(".paper-item-block") : document.getElementById("quizDynamicContent");
+  const block = isPaper
+    ? btn.closest(".paper-item-block")
+    : document.getElementById("quizDynamicContent");
   if (block) {
     if (isPaper) block.className = `paper-item-block ${item.userStatus}`;
     const feed = block.querySelector(".feedback-msg");
     if (feed) {
-      feed.innerText = item.userStatus === "correct" ? "🎉 回答正确！" : `❌ 正确答案是：${item.answer}`;
-      feed.style.color = item.userStatus === "correct" ? "var(--success-text)" : "var(--danger-text)";
+      feed.innerText =
+        item.userStatus === "correct"
+          ? "🎉 回答正确！"
+          : `❌ 正确答案是：${item.answer}`;
+      feed.style.color =
+        item.userStatus === "correct"
+          ? "var(--success-text)"
+          : "var(--danger-text)";
     }
   }
 
@@ -512,13 +532,16 @@ function handleAnswerCore(index, btn, selectedOpt, isPaper) {
 
   setTimeout(() => {
     saveProgressToLocal();
-    localStorage.setItem(`EBB_WORD_CORE_${item.word.trim()}`, JSON.stringify({
-      errorCount: item.errorCount,
-      stage: item.stage,
-      userStatus: item.userStatus,
-      selectedAnswer: item.selectedAnswer,
-      nextReviewTime: item.nextReviewTime
-    }));
+    localStorage.setItem(
+      `EBB_WORD_CORE_${item.word.trim()}`,
+      JSON.stringify({
+        errorCount: item.errorCount,
+        stage: item.stage,
+        userStatus: item.userStatus,
+        selectedAnswer: item.selectedAnswer,
+        nextReviewTime: item.nextReviewTime,
+      }),
+    );
   }, 0);
   updateEbbinghausSummary();
   updateTopWrongTable(vocabList);
@@ -589,7 +612,8 @@ function renderAnswerCard() {
       renderQuizZone();
       if (isFullPaperMode) {
         const target = document.getElementById(`paper-q-${index}`);
-        if (target) target.scrollIntoView({ behavior: "smooth", block: "center" });
+        if (target)
+          target.scrollIntoView({ behavior: "smooth", block: "center" });
       }
       saveProgressToLocal();
     };
@@ -647,17 +671,21 @@ function renderDashboard() {
 // ==========================================
 function runDataAnalysis() {
   const total = vocabList.length;
-  const answered = vocabList.filter((i) => i.userStatus !== "unanswered").length;
+  const answered = vocabList.filter(
+    (i) => i.userStatus !== "unanswered",
+  ).length;
   const correctNum = vocabList.filter((i) => i.userStatus === "correct").length;
-  
+
   // 👈 计算错题总数
-  const wrongNum = vocabList.filter((i) => (i.errorCount || 0) > 0 || i.userStatus === "wrong").length;
-  
+  const wrongNum = vocabList.filter(
+    (i) => (i.errorCount || 0) > 0 || i.userStatus === "wrong",
+  ).length;
+
   const acc = answered > 0 ? Math.round((correctNum / answered) * 100) : 0;
 
   const now = Date.now();
   const forgetWarnings = vocabList.filter(
-    (i) => i.nextReviewTime > 0 && now >= i.nextReviewTime
+    (i) => i.nextReviewTime > 0 && now >= i.nextReviewTime,
   ).length;
 
   const statTotal = document.getElementById("statTotal");
@@ -687,7 +715,7 @@ function runDataAnalysis() {
       "入门起点 L0 (刚刷/错题)",
       "初学记忆 L1 (5-30分级)",
       "稳固阶段 L2 (半天冷却)",
-      "熟练精通 L3+ (跨天记忆)"
+      "熟练精通 L3+ (跨天记忆)",
     ];
 
     stageCounts.forEach((count, idx) => {
@@ -757,7 +785,10 @@ function renderEbbinghausView() {
   waitingItems.forEach((item) => {
     const node = document.createElement("div");
     node.className = "ebb-timeline-node";
-    const remainSec = Math.max(0, Math.round((item.nextReviewTime - now) / 1000));
+    const remainSec = Math.max(
+      0,
+      Math.round((item.nextReviewTime - now) / 1000),
+    );
     let timeStr = `${remainSec} 秒`;
     if (remainSec > 60) timeStr = `${Math.round(remainSec / 60)} 分钟`;
     if (remainSec > 3600) timeStr = `${Math.round(remainSec / 3600)} 小时`;
@@ -776,7 +807,8 @@ function initReviewEngine(expiredItems) {
   if (!statusBar || !zone) return;
 
   if (expiredItems.length === 0) {
-    statusBar.innerText = "🎉 太棒了！当前没有任何题目处于遗忘区，记忆状态极佳！";
+    statusBar.innerText =
+      "🎉 太棒了！当前没有任何题目处于遗忘区，记忆状态极佳！";
     statusBar.className = "review-status-bar safe";
     zone.style.display = "none";
     return;
@@ -787,7 +819,7 @@ function initReviewEngine(expiredItems) {
   zone.style.display = "block";
 
   currentReviewIndexList = expiredItems.map((item) =>
-    vocabList.findIndex((v) => v.id === item.id)
+    vocabList.findIndex((v) => v.id === item.id),
   );
   currentReviewPointer = 0;
   loadReviewQuestion();
@@ -810,10 +842,19 @@ function loadReviewQuestion() {
 
   if (feed) feed.innerText = "";
   if (ebbNextBtn) ebbNextBtn.style.display = "none";
-  
+
+// 找到这部分代码并修改：
   const ebbWordDisplay = document.getElementById("ebbWordDisplay");
   if (ebbWordDisplay) {
-    ebbWordDisplay.innerText = `【复习第 ${item.id} 题】 ${item.word}`;
+    // 渲染单词文本 + 🔊 播放按钮
+    ebbWordDisplay.innerHTML = `
+      <span>【复习第 ${item.id} 题】 ${item.word}</span>
+      <button type="button" class="audio-play-btn" title="朗读发音" onclick="speakWord('${item.word.replace(/'/g, "\\'")}')">
+        🔊
+      </button>
+    `;
+    // 加载题目时自动朗读单词
+    speakWord(item.word);
   }
 
   if (grid) {
@@ -834,9 +875,11 @@ function loadReviewQuestion() {
           }
           if (item.stage < 8) item.stage++;
           item.nextReviewTime =
-            Date.now() + (EBB_INTERVALS[item.stage - 1] || EBB_INTERVALS[EBB_INTERVALS.length - 1]);
+            Date.now() +
+            (EBB_INTERVALS[item.stage - 1] ||
+              EBB_INTERVALS[EBB_INTERVALS.length - 1]);
           item.userStatus = "correct";
-          
+
           saveProgressToLocal();
 
           // ----------------【新增：答对自动跳转逻辑】----------------
@@ -844,7 +887,6 @@ function loadReviewQuestion() {
             currentReviewPointer++;
             loadReviewQuestion();
           }, 200); // 600毫秒延迟，既有视觉反馈，刷题节奏又顺畅
-
         } else {
           btn.classList.add("wrong");
           if (feed) {
@@ -890,7 +932,7 @@ if (exportWrongBtn) {
     const out = wrong
       .map(
         (i) =>
-          `${i.word}|${i.rawOptions[0]}|${i.rawOptions[1]}|${i.rawOptions[2]}|${i.rawOptions[3]}|${i.answer}`
+          `${i.word}|${i.rawOptions[0]}|${i.rawOptions[1]}|${i.rawOptions[2]}|${i.rawOptions[3]}|${i.answer}`,
       )
       .join("\n");
     const blob = new Blob([out], { type: "text/plain;charset=utf-8;" });
@@ -977,7 +1019,10 @@ function autoRecoverOnRefresh() {
           const prefixLen = "EBB_DATA_".length;
           const lastUnderscoreIndex = activeKey.lastIndexOf("_");
           if (lastUnderscoreIndex > prefixLen) {
-            const recoveredFileName = activeKey.substring(prefixLen, lastUnderscoreIndex);
+            const recoveredFileName = activeKey.substring(
+              prefixLen,
+              lastUnderscoreIndex,
+            );
             fileStatusText.innerText = recoveredFileName;
             fileStatusText.style.color = "var(--success-text)";
           }
@@ -1005,8 +1050,6 @@ function autoRecoverOnRefresh() {
     }
   }
   if (exportSnapshotBtn) exportSnapshotBtn.disabled = false;
-
-  
 }
 
 // ==========================================
@@ -1035,16 +1078,18 @@ if (exportSnapshotBtn) {
         options: item.options,
         rawOptions: item.rawOptions,
         errorCount: item.errorCount,
-        stage: item.stage,                      // 艾宾浩斯记忆阶段 (L0-L8)
-        userStatus: item.userStatus,            // 用户作答状态 (unanswered/correct/wrong)
-        selectedAnswer: item.selectedAnswer,    // 用户的选择
-        nextReviewTime: item.nextReviewTime     // 下一次临界复习时间戳
-      }))
+        stage: item.stage, // 艾宾浩斯记忆阶段 (L0-L8)
+        userStatus: item.userStatus, // 用户作答状态 (unanswered/correct/wrong)
+        selectedAnswer: item.selectedAnswer, // 用户的选择
+        nextReviewTime: item.nextReviewTime, // 下一次临界复习时间戳
+      })),
     };
 
     // 转换为格式化的 JSON 文本并下载
     const jsonStr = JSON.stringify(snapshotData, null, 2);
-    const blob = new Blob([jsonStr], { type: "application/json;charset=utf-8;" });
+    const blob = new Blob([jsonStr], {
+      type: "application/json;charset=utf-8;",
+    });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
 
@@ -1093,17 +1138,20 @@ if (importSnapshotBtn && importSnapshotInput) {
         // 提示用户确认覆盖
         const confirmRestore = confirm(
           `确定要恢复该快照吗？\n` +
-          `• 导出时间：${snapshotData.exportTime || "未知"}\n` +
-          `• 题目数量：${snapshotData.vocabList.length} 题\n` +
-          `警告：当前正在进行的答题进度将被覆盖！`
+            `• 导出时间：${snapshotData.exportTime || "未知"}\n` +
+            `• 题目数量：${snapshotData.vocabList.length} 题\n` +
+            `警告：当前正在进行的答题进度将被覆盖！`,
         );
 
         if (!confirmRestore) return;
 
         // 1. 恢复内存中的全局变量状态
         vocabList = snapshotData.vocabList;
-        currentIndex = typeof snapshotData.currentIndex === "number" ? snapshotData.currentIndex : 0;
-        
+        currentIndex =
+          typeof snapshotData.currentIndex === "number"
+            ? snapshotData.currentIndex
+            : 0;
+
         // 生成或使用数据库 Key
         currentDbKey = snapshotData.dbKey || `EBB_RESTORED_${Date.now()}`;
 
@@ -1121,7 +1169,10 @@ if (importSnapshotBtn && importSnapshotInput) {
           const prefixLen = "EBB_DATA_".length;
           const lastUnderscoreIndex = currentDbKey.lastIndexOf("_");
           if (lastUnderscoreIndex > prefixLen) {
-            const fileName = currentDbKey.substring(prefixLen, lastUnderscoreIndex);
+            const fileName = currentDbKey.substring(
+              prefixLen,
+              lastUnderscoreIndex,
+            );
             fileStatusText.innerText = `${fileName} (来自快照)`;
             fileStatusText.style.color = "var(--success-text)";
           }
@@ -1142,16 +1193,17 @@ if (importSnapshotBtn && importSnapshotInput) {
         if (resetProgressBtn) resetProgressBtn.disabled = false;
 
         // 5. 调用系统自带函数重新渲染全部 UI 页面
-        renderDashboard();           // 重新生成仪表盘
-        renderAnswerCard();          // 重新生成右侧答题卡
-        renderQuizZone();            // 重新装载刷题主区域
-        updateEbbinghausSummary();    // 更新艾宾浩斯复习预测概览
+        renderDashboard(); // 重新生成仪表盘
+        renderAnswerCard(); // 重新生成右侧答题卡
+        renderQuizZone(); // 重新装载刷题主区域
+        updateEbbinghausSummary(); // 更新艾宾浩斯复习预测概览
 
         alert("🎉 恭喜！全量数据快照已成功恢复！");
-
       } catch (err) {
         console.error("解析快照文件出错：", err);
-        alert("导入失败：读取快照文件时发生错误，请确认是否为正确的 JSON 快照文件。");
+        alert(
+          "导入失败：读取快照文件时发生错误，请确认是否为正确的 JSON 快照文件。",
+        );
       }
     };
 
@@ -1172,12 +1224,12 @@ if (resetProgressBtn) {
     // 确认二次提醒，防止误触
     const confirmReset = confirm(
       "⚠️ 警告：确定要重置当前题库的所有作答记录吗？\n\n" +
-      "此操作将清除：\n" +
-      "1. 所有题目做题历史与已选答案\n" +
-      "2. 错题统计与错误次数\n" +
-      "3. 艾宾浩斯遗忘曲线熟练度 (全部重置为 L0)\n" +
-      "4. 下一次复习时间点\n\n" +
-      "重置后数据无法直接撤销（建议先导出快照备份）。"
+        "此操作将清除：\n" +
+        "1. 所有题目做题历史与已选答案\n" +
+        "2. 错题统计与错误次数\n" +
+        "3. 艾宾浩斯遗忘曲线熟练度 (全部重置为 L0)\n" +
+        "4. 下一次复习时间点\n\n" +
+        "重置后数据无法直接撤销（建议先导出快照备份）。",
     );
 
     if (!confirmReset) return;
@@ -1202,45 +1254,46 @@ if (resetProgressBtn) {
     saveProgressToLocal();
 
     // 4. 重新渲染全局 UI 界面
-    renderDashboard();           // 重新渲染仪表盘
-    renderAnswerCard();          // 重新生成答题卡
-    renderQuizZone();            // 重新刷新刷题主面板
-    updateEbbinghausSummary();    // 重置艾宾浩斯复习预测面板数据
+    renderDashboard(); // 重新渲染仪表盘
+    renderAnswerCard(); // 重新生成答题卡
+    renderQuizZone(); // 重新刷新刷题主面板
+    updateEbbinghausSummary(); // 重置艾宾浩斯复习预测面板数据
 
     alert("✨ 当前题库的作答痕迹与遗忘曲线数据已全部重置！");
   });
 }
 
-
 window.addEventListener("DOMContentLoaded", autoRecoverOnRefresh);
 // ==========================================
 // 键盘快捷键监听逻辑
 // ==========================================
-document.addEventListener('keydown', (e) => {
+document.addEventListener("keydown", (e) => {
   // 避免用户在输入框、文本域中打字时误触发快捷键
-  const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
-  if (activeTag === 'input' || activeTag === 'textarea') return;
+  const activeTag = document.activeElement
+    ? document.activeElement.tagName.toLowerCase()
+    : "";
+  if (activeTag === "input" || activeTag === "textarea") return;
 
   const key = e.key;
 
   // 1. 切题逻辑：A / LeftArrow (上一题)
-  if (key === 'a' || key === 'A' || key === 'ArrowLeft') {
+  if (key === "a" || key === "A" || key === "ArrowLeft") {
     e.preventDefault();
     if (prevBtn) prevBtn.click();
   }
 
   // 2. 切题逻辑：D / RightArrow (下一题)
-  if (key === 'd' || key === 'D' || key === 'ArrowRight') {
+  if (key === "d" || key === "D" || key === "ArrowRight") {
     e.preventDefault();
     if (nextBtn) nextBtn.click();
   }
 
   // 3. 提交/确认逻辑：W / Enter
-  if (key === 'w' || key === 'W' || key === 'Enter') {
+  if (key === "w" || key === "W" || key === "Enter") {
     e.preventDefault();
     // 单题模式下尝试触发“下一题”或艾宾浩斯复习页面的“下一题”
-    const ebbNextBtn = document.getElementById('ebbNextBtn');
-    if (ebbNextBtn && ebbNextBtn.style.display !== 'none') {
+    const ebbNextBtn = document.getElementById("ebbNextBtn");
+    if (ebbNextBtn && ebbNextBtn.style.display !== "none") {
       ebbNextBtn.click();
     } else if (nextBtn) {
       nextBtn.click();
@@ -1248,14 +1301,16 @@ document.addEventListener('keydown', (e) => {
   }
 
   // 4. 数字键选择逻辑：1 - 4（主键盘及小键盘）
-  if (['1', '2', '3', '4'].includes(key)) {
+  if (["1", "2", "3", "4"].includes(key)) {
     e.preventDefault();
     const optIndex = parseInt(key, 10) - 1;
 
     // 优先匹配当前单题模式容器
-    const currentContainer = document.getElementById('optionsGrid') || document.getElementById('ebbOptionsGrid');
+    const currentContainer =
+      document.getElementById("optionsGrid") ||
+      document.getElementById("ebbOptionsGrid");
     if (currentContainer) {
-      const options = currentContainer.querySelectorAll('.opt-btn');
+      const options = currentContainer.querySelectorAll(".opt-btn");
       if (options && options[optIndex] && !options[optIndex].disabled) {
         options[optIndex].click();
       }
@@ -1268,7 +1323,7 @@ const navTabs = document.querySelectorAll(".nav-tabs .tab-btn");
 navTabs.forEach((btn) => {
   btn.addEventListener("click", () => {
     const targetTabId = btn.getAttribute("data-tab");
-    
+
     // 切换 active 类
     document.querySelectorAll(".tab-content").forEach((tab) => {
       tab.classList.remove("active");
@@ -1282,7 +1337,10 @@ navTabs.forEach((btn) => {
     }
 
     // 切换到数据分析页时，延迟 50ms 等待 DOM 显示，然后重新渲染/调整图表尺寸
-    if (targetTabId === "analysisTab" && typeof renderAnalysisCharts === "function") {
+    if (
+      targetTabId === "analysisTab" &&
+      typeof renderAnalysisCharts === "function"
+    ) {
       setTimeout(() => {
         renderAnalysisCharts(vocabList);
       }, 50);
@@ -1312,11 +1370,11 @@ function renderAnalysisCharts(list) {
   if (canvasEbb && typeof Chart !== "undefined") {
     // 理论保留率数据点 (艾宾浩斯经典曲线 approx)
     const theoryData = [100, 58.2, 44.2, 35.8, 33.7, 27.8, 25.4, 21.1];
-    
+
     // 计算实际保留率：各个阶段（L0-L8）题目中，非错误题目的占比
     const totalCount = dataList.length;
     const stageCorrectCounts = Array(8).fill(0);
-    
+
     dataList.forEach((item) => {
       const s = Math.min(Math.max(item.stage || 0, 0), 7);
       if (item.userStatus === "correct" || item.stage > 0) {
@@ -1337,7 +1395,16 @@ function renderAnalysisCharts(list) {
     window.ebbCurveChartInstance = new Chart(ctxEbb, {
       type: "line",
       data: {
-        labels: ["5分钟", "30分钟", "12小时", "1天", "2天", "4天", "7天", "15天"],
+        labels: [
+          "5分钟",
+          "30分钟",
+          "12小时",
+          "1天",
+          "2天",
+          "4天",
+          "7天",
+          "15天",
+        ],
         datasets: [
           {
             label: "艾宾浩斯理论遗忘曲线 (%)",
@@ -1346,7 +1413,7 @@ function renderAnalysisCharts(list) {
             backgroundColor: "rgba(231, 76, 60, 0.1)",
             borderDash: [5, 5],
             fill: false,
-            tension: 0.4
+            tension: 0.4,
           },
           {
             label: "实际记忆保留率 (%)",
@@ -1356,20 +1423,20 @@ function renderAnalysisCharts(list) {
             fill: true,
             tension: 0.3,
             pointRadius: 4,
-            pointBackgroundColor: "#2ecc71"
-          }
-        ]
+            pointBackgroundColor: "#2ecc71",
+          },
+        ],
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
-          legend: { position: "top" }
+          legend: { position: "top" },
         },
         scales: {
-          y: { beginAtZero: true, max: 100 }
-        }
-      }
+          y: { beginAtZero: true, max: 100 },
+        },
+      },
     });
   }
 
@@ -1389,26 +1456,29 @@ function renderAnalysisCharts(list) {
       else unanswerCount++;
     });
 
-    if (window.accuracyPieChartInstance) window.accuracyPieChartInstance.destroy();
+    if (window.accuracyPieChartInstance)
+      window.accuracyPieChartInstance.destroy();
 
     const ctxRate = canvasRate.getContext("2d");
     window.accuracyPieChartInstance = new Chart(ctxRate, {
       type: "doughnut",
       data: {
         labels: ["正确", "错误", "未答"],
-        datasets: [{
-          data: [rightCount, wrongCount, unanswerCount],
-          backgroundColor: ["#2ecc71", "#e74c3c", "#95a5a6"],
-          borderWidth: 2
-        }]
+        datasets: [
+          {
+            data: [rightCount, wrongCount, unanswerCount],
+            backgroundColor: ["#2ecc71", "#e74c3c", "#95a5a6"],
+            borderWidth: 2,
+          },
+        ],
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
-          legend: { position: "bottom" }
-        }
-      }
+          legend: { position: "bottom" },
+        },
+      },
     });
   }
 
@@ -1433,23 +1503,25 @@ function renderAnalysisCharts(list) {
       type: "bar",
       data: {
         labels: ["L0 刚刷/错题", "L1 初始记忆", "L2 巩固阶段", "L3+ 精通熟练"],
-        datasets: [{
-          label: "题目数量",
-          data: stageCounts,
-          backgroundColor: ["#e74c3c", "#f1c40f", "#3498db", "#2ecc71"],
-          borderRadius: 6
-        }]
+        datasets: [
+          {
+            label: "题目数量",
+            data: stageCounts,
+            backgroundColor: ["#e74c3c", "#f1c40f", "#3498db", "#2ecc71"],
+            borderRadius: 6,
+          },
+        ],
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
-          legend: { display: false }
+          legend: { display: false },
         },
         scales: {
-          y: { beginAtZero: true, ticks: { precision: 0 } }
-        }
-      }
+          y: { beginAtZero: true, ticks: { precision: 0 } },
+        },
+      },
     });
   }
 
@@ -1460,12 +1532,18 @@ function renderAnalysisCharts(list) {
   if (canvasFuture && typeof Chart !== "undefined") {
     const futureDays = Array(7).fill(0);
     const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const todayStart = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+    ).getTime();
     const oneDayMs = 24 * 60 * 60 * 1000;
 
     dataList.forEach((item) => {
       if (item.nextReviewTime && item.stage > 0) {
-        const diffDays = Math.floor((item.nextReviewTime - todayStart) / oneDayMs);
+        const diffDays = Math.floor(
+          (item.nextReviewTime - todayStart) / oneDayMs,
+        );
         if (diffDays >= 0 && diffDays < 7) {
           futureDays[diffDays]++;
         }
@@ -1474,34 +1552,37 @@ function renderAnalysisCharts(list) {
 
     const labels = ["今天", "明天", "后天", "第4天", "第5天", "第6天", "第7天"];
 
-    if (window.futureReviewChartInstance) window.futureReviewChartInstance.destroy();
+    if (window.futureReviewChartInstance)
+      window.futureReviewChartInstance.destroy();
 
     const ctxFuture = canvasFuture.getContext("2d");
     window.futureReviewChartInstance = new Chart(ctxFuture, {
       type: "line",
       data: {
         labels: labels,
-        datasets: [{
-          label: "预计复习量",
-          data: futureDays,
-          borderColor: "#3498db",
-          backgroundColor: "rgba(52, 152, 219, 0.15)",
-          fill: true,
-          tension: 0.3,
-          pointRadius: 4,
-          pointBackgroundColor: "#3498db"
-        }]
+        datasets: [
+          {
+            label: "预计复习量",
+            data: futureDays,
+            borderColor: "#3498db",
+            backgroundColor: "rgba(52, 152, 219, 0.15)",
+            fill: true,
+            tension: 0.3,
+            pointRadius: 4,
+            pointBackgroundColor: "#3498db",
+          },
+        ],
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
-          legend: { display: false }
+          legend: { display: false },
         },
         scales: {
-          y: { beginAtZero: true, ticks: { precision: 0 } }
-        }
-      }
+          y: { beginAtZero: true, ticks: { precision: 0 } },
+        },
+      },
     });
   }
 
@@ -1518,13 +1599,21 @@ function updateTopWrongTable(list) {
 
   // 1. 过滤出所有有错误记录的题目，按错误次数降序排列
   const wrongList = dataList
-    .filter((item) => (item.errorCount || item.wrongCount || 0) > 0 || item.userStatus === "wrong")
-    .sort((a, b) => (b.errorCount || b.wrongCount || 1) - (a.errorCount || a.wrongCount || 1));
+    .filter(
+      (item) =>
+        (item.errorCount || item.wrongCount || 0) > 0 ||
+        item.userStatus === "wrong",
+    )
+    .sort(
+      (a, b) =>
+        (b.errorCount || b.wrongCount || 1) -
+        (a.errorCount || a.wrongCount || 1),
+    );
 
   // 2. 获取 DOM 容器
-  const tbodyMain = document.getElementById("topWrongBody");    // 数据分析面板 Top5
-  const tbodyEbb = document.getElementById("topWrongBodyEbb");  // 艾宾浩斯面板 Top10
-  const tbodyCtph = document.getElementById("ctphWrongBody");   // 错题排行专属 Tab (展示全部)
+  const tbodyMain = document.getElementById("topWrongBody"); // 数据分析面板 Top5
+  const tbodyEbb = document.getElementById("topWrongBodyEbb"); // 艾宾浩斯面板 Top10
+  const tbodyCtph = document.getElementById("ctphWrongBody"); // 错题排行专属 Tab (展示全部)
   const tipCount = document.getElementById("ctphTotalCountTip");
 
   // 空错题处理
@@ -1543,11 +1632,13 @@ function updateTopWrongTable(list) {
   if (tbodyCtph) {
     // 获取用户选择的筛选阈值
     const filterSelect = document.getElementById("ctphFilterSelect");
-    const minErrCount = filterSelect ? parseInt(filterSelect.value, 10) || 0 : 0;
+    const minErrCount = filterSelect
+      ? parseInt(filterSelect.value, 10) || 0
+      : 0;
 
     // 过滤满足错误次数要求的错题列表
     const filteredList = wrongList.filter(
-      (item) => (item.errorCount || item.wrongCount || 1) >= minErrCount
+      (item) => (item.errorCount || item.wrongCount || 1) >= minErrCount,
     );
 
     // 更新标题处的题目数量提示
@@ -1559,18 +1650,20 @@ function updateTopWrongTable(list) {
       tbodyCtph.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 40px 0;">🔍 没有找到答错次数 ≥ ${minErrCount} 次的题目</td></tr>`;
     } else {
       // 不截断（slice），完整渲染符合条件的所有错题
-      tbodyCtph.innerHTML = filteredList.map((item, index) => {
-        const errTimes = item.errorCount || item.wrongCount || 1;
-        return `
+      tbodyCtph.innerHTML = filteredList
+        .map((item, index) => {
+          const errTimes = item.errorCount || item.wrongCount || 1;
+          return `
           <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-            <td style="padding: 12px; font-weight: bold; color: ${index < 3 ? '#e74c3c' : 'inherit'};">#${index + 1}</td>
+            <td style="padding: 12px; font-weight: bold; color: ${index < 3 ? "#e74c3c" : "inherit"};">#${index + 1}</td>
             <td style="padding: 12px;"><strong>${item.word || item.title || "未命名题目"}</strong></td>
             <td style="padding: 12px; color: var(--success-text);">${item.answer || "--"}</td>
             <td style="padding: 12px; text-align: center; color: #e74c3c; font-weight: bold;">${errTimes} 次</td>
             <td style="padding: 12px; text-align: center;"><span class="badge">L${item.stage !== undefined ? item.stage : 0}</span></td>
           </tr>
         `;
-      }).join("");
+        })
+        .join("");
     }
   }
 
@@ -1578,23 +1671,33 @@ function updateTopWrongTable(list) {
   // 4. 渲染 数据分析面板 (Top 5) & 艾宾浩斯面板 (Top 10)
   // ----------------------------------------------------
   const top10List = wrongList.slice(0, 10);
-  const rowsHtml = top10List.map((item, index) => `
+  const rowsHtml = top10List
+    .map(
+      (item, index) => `
     <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-      <td style="padding: 10px; font-weight: bold; color: ${index < 3 ? '#e74c3c' : 'inherit'};">#${index + 1}</td>
+      <td style="padding: 10px; font-weight: bold; color: ${index < 3 ? "#e74c3c" : "inherit"};">#${index + 1}</td>
       <td style="padding: 10px;"><strong>${item.word || item.title || "未命名题目"}</strong></td>
       <td style="padding: 10px; text-align: center; color: #e74c3c; font-weight: bold;">${item.errorCount || item.wrongCount || 1} 次</td>
       <td style="padding: 10px; text-align: center;"><span class="badge">L${item.stage !== undefined ? item.stage : 0}</span></td>
     </tr>
-  `).join("");
+  `,
+    )
+    .join("");
 
-  if (tbodyMain) tbodyMain.innerHTML = wrongList.slice(0, 5).map((item, index) => `
+  if (tbodyMain)
+    tbodyMain.innerHTML = wrongList
+      .slice(0, 5)
+      .map(
+        (item, index) => `
     <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-      <td style="padding: 10px; font-weight: bold; color: ${index < 3 ? '#e74c3c' : 'inherit'};">#${index + 1}</td>
+      <td style="padding: 10px; font-weight: bold; color: ${index < 3 ? "#e74c3c" : "inherit"};">#${index + 1}</td>
       <td style="padding: 10px;"><strong>${item.word || item.title || "未命名题目"}</strong></td>
       <td style="padding: 10px; text-align: center; color: #e74c3c; font-weight: bold;">${item.errorCount || item.wrongCount || 1} 次</td>
       <td style="padding: 10px; text-align: center;"><span class="badge">L${item.stage !== undefined ? item.stage : 0}</span></td>
     </tr>
-  `).join("");
+  `,
+      )
+      .join("");
 
   if (tbodyEbb) tbodyEbb.innerHTML = rowsHtml;
 }
@@ -1610,7 +1713,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
-
 
 // ==========================================
 // 全局一键刷新所有分析与预测视图
@@ -1643,13 +1745,13 @@ function speakWord(word) {
   if (!word) return;
   // 停止当前正在播放的声音
   window.speechSynthesis.cancel();
-  
+
   // 提取单词部分（防止把音标 [ad'vaiz] 一起读出来）
-  const cleanWord = word.split('[')[0].trim();
-  
+  const cleanWord = word.split("[")[0].trim();
+
   const utterance = new SpeechSynthesisUtterance(cleanWord);
-  utterance.lang = 'en-US'; // 设置为美式英语 (如果是英式可设为 'en-GB')
-  utterance.rate = 0.9;     // 语速设置为 0.9，稍微慢一点更清晰
-  
+  utterance.lang = "en-US"; // 设置为美式英语 (如果是英式可设为 'en-GB')
+  utterance.rate = 0.8; // 语速设置为 0.8，稍微慢一点更清晰
+
   window.speechSynthesis.speak(utterance);
 }

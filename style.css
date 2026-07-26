@@ -842,3 +842,17 @@ button:disabled {
 .audio-play-btn:active {
   transform: scale(0.95);
 }
+
+.audio-play-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  margin-left: 8px;
+  vertical-align: middle;
+  transition: transform 0.15s ease;
+}
+
+.audio-play-btn:hover {
+  transform: scale(1.2);
+}
