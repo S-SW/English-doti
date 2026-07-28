@@ -8,7 +8,6 @@ let currentDbKey = ""; // 当前文件的本地缓存唯一识别 Key
 let isAutoNextEnabled = true;
 let isAutoSpeakEnabled = true; // ✨ 新增：下一题自动朗读单词开关状态（默认开启）
 
-
 // 艾宾浩斯时间跨度表 (单位：毫秒)
 const EBB_INTERVALS = [
   5 * 60 * 1000, // L0 -> L1: 5分钟
@@ -360,12 +359,11 @@ function renderQuizZone() {
           }
         });
       },
-      { root: dynamicContent, rootMargin: "300px 0px" }
+      { root: dynamicContent, rootMargin: "300px 0px" },
     );
 
     const blocks = dynamicContent.querySelectorAll(".paper-item-block");
     blocks.forEach((el) => paperObserver.observe(el));
-
   } else {
     // ---------------- ✨ 单题模式（今日刷题） ----------------
     if (progressContainer) progressContainer.style.display = "block";
@@ -379,6 +377,7 @@ function renderQuizZone() {
       <div class="word-display" id="wordDisplay"></div>
       <div class="options-grid" id="optionsGrid"></div>
       <div id="feedback" class="feedback-msg"></div>
+      <div id="mnemonicContainer" style="margin-top: 15px;"></div>
     `;
 
     // 防越界保护
@@ -406,7 +405,7 @@ function renderQuizZone() {
       progressBar.style.width = `${((currentIndex + 1) / vocabList.length) * 100}%`;
     }
 
-    // 渲染单词与发音按钮
+    // 1.渲染单词与发音按钮
     const wordDisplay = document.getElementById("wordDisplay");
     if (wordDisplay) {
       wordDisplay.innerHTML = `
@@ -415,6 +414,15 @@ function renderQuizZone() {
           🔊
         </button>
       `;
+    }
+
+    // 2. 渲染助记信息 (在渲染完单词和选项后调用)
+    const mnemonicContainer = document.getElementById("mnemonicContainer");
+    if (mnemonicContainer && item.word) {
+      // 如果题库 txt 中自带了助记 (比如某些txt格式里包含了拆解信息)，直接用自带的；
+      // 否则使用 analyzeWordMnemonic() 自动识别拆解！
+      const autoMnemonicHtml = analyzeWordMnemonic(item.word);
+      mnemonicContainer.innerHTML = autoMnemonicHtml;
     }
 
     // 渲染选项按钮
@@ -924,14 +932,14 @@ function loadReviewQuestion() {
           item.errorCount++;
           item.nextReviewTime = Date.now() + EBB_INTERVALS[0];
           item.userStatus = "wrong";
-          
+
           buttons.forEach((b) => {
             if (b.innerText === item.answer) b.classList.add("correct");
           });
 
           // 显示“下一题”按钮，停留在当前页等待用户确认
           if (ebbNextBtn) ebbNextBtn.style.display = "block";
-          
+
           saveProgressToLocal();
           updateEbbinghausSummary(); // ❌ 移除渲染 renderEbbinghausView()，防止页面直接被刷新跳过
         }

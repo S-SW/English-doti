@@ -866,3 +866,21 @@ button:disabled {
   box-shadow: none !important;
   transition: all 0.2s ease;
 }
+/* 助记拆解卡片样式 */
+.mnemonic-box {
+  background: var(--bg-card, #2c3e50);
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+  border-left: 4px solid var(--primary-color, #3498db);
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--text-color, #ecf0f1);
+  line-height: 1.6;
+  text-align: left;
+  transition: all 0.3s ease;
+}
+
+/* 深色模式兼容 */
+[data-theme="dark"] .mnemonic-box {
+  background: rgba(228, 222, 222, 0.795);
+}
