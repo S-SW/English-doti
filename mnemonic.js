@@ -73,7 +73,7 @@ const ROOTS = {
 };
 
 /**
- * 自动分析单词的词根词缀
+ * 自动分析单词的词根词缀 (已优化适配主题)
  * @param {string} word - 待拆解单词
  * @returns {string} 格式化的助记拆解HTML
  */
@@ -114,16 +114,16 @@ function analyzeWordMnemonic(word) {
     }
   }
 
-  // 构建分析结果 HTML
+  // 构建分析结果 HTML (使用 class 配合 CSS 适配主题)
   let details = [];
   if (foundPrefix) {
-    details.push(`<span style="color:#e67e22;"><b>前缀:</b> ${foundPrefix}- (${PREFIXES[foundPrefix]})</span>`);
+    details.push(`<span class="tag-prefix"><b>前缀:</b> ${foundPrefix}- (${PREFIXES[foundPrefix]})</span>`);
   }
   if (foundRoot) {
-    details.push(`<span style="color:#2980b9;"><b>词根:</b> -${foundRoot}- (${ROOTS[foundRoot]})</span>`);
+    details.push(`<span class="tag-root"><b>词根:</b> -${foundRoot}- (${ROOTS[foundRoot]})</span>`);
   }
   if (foundSuffix) {
-    details.push(`<span style="color:#2ecc71;"><b>后缀:</b> -${foundSuffix} (${SUFFIXES[foundSuffix]})</span>`);
+    details.push(`<span class="tag-suffix"><b>后缀:</b> -${foundSuffix} (${SUFFIXES[foundSuffix]})</span>`);
   }
 
   if (details.length > 0) {

@@ -880,7 +880,78 @@ button:disabled {
   transition: all 0.3s ease;
 }
 
-/* 深色模式兼容 */
+/* ==========================================
+   助记卡片（词根词缀）主题适配样式
+   ========================================== */
+.mnemonic-box {
+  margin-top: 12px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 1.6;
+  transition: all 0.3s ease;
+  
+  /* 默认（明亮模式）下背景与边框 */
+  background-color: var(--bg-hover, #f8f9fa);
+  border: 1px solid var(--border-color, #e0e0e0);
+  color: var(--text-color, #2c3e50);
+}
+
+/* 暗黑模式下，通过系统 data-theme 或媒体查询自动适配 */
 [data-theme="dark"] .mnemonic-box {
-  background: rgba(228, 222, 222, 0.795);
+  background-color: rgba(255, 255, 255, 0.05); /* 柔和半透明暗色背景 */
+  border-color: rgba(255, 255, 255, 0.12);     /* 暗色微光边框 */
+  color: #ecf0f1;                              /* 高对比浅色文本 */
+}
+
+/* 词缀标签颜色调优：兼顾白天与黑夜模式的高清晰度 */
+.mnemonic-box .tag-prefix {
+  color: #e67e22; /* 暖橙色 */
+}
+
+.mnemonic-box .tag-root {
+  color: #3498db; /* 天蓝色 */
+}
+
+.mnemonic-box .tag-suffix {
+  color: #2ecc71; /* 翡翠绿 */
+}
+
+/* 提示文本在暗黑模式下的颜色 */
+.mnemonic-box.text-muted {
+  color: var(--text-muted, #7f8c8d);
+}
+
+[data-theme="dark"] .mnemonic-box.text-muted {
+  color: #bdc3c7;
+}
+
+/* 确保助记卡片铺满，并且不会跟按钮重叠 */
+#mnemonicContainer,
+#ebbMnemonicContainer {
+  width: 100%;
+  box-sizing: border-box;
+  clear: both;
+}
+
+#mnemonicContainer .mnemonic-box,
+#ebbMnemonicContainer .mnemonic-box {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 10px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 1.6;
+  background-color: var(--bg-hover, #f8f9fa);
+  border: 1px solid var(--border-color, #e0e0e0);
+  color: var(--text-color, #2c3e50);
+}
+
+/* 深色模式兼容 */
+[data-theme="dark"] #mnemonicContainer .mnemonic-box,
+[data-theme="dark"] #ebbMnemonicContainer .mnemonic-box {
+  background-color: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #ecf0f1;
 }

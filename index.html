@@ -49,13 +49,15 @@
             >
           </div>
           <label class="switch-box" id="autoSpeakSwitchBox">
-  <input type="checkbox" id="autoSpeakToggle" checked>
-  <span>下一题自动朗读单词</span>
-</label>
+            <input type="checkbox" id="autoSpeakToggle" checked />
+            <span>下一题自动朗读单词</span>
+          </label>
         </div>
       </header>
 
+<!-- 主页刷题区域 -->
       <div class="main-layout tab-content active" id="quizTab">
+        <!-- 左侧：刷题核心卡片 -->
         <div class="card quiz-zone" id="quizZone">
           <div class="progress-bar-container" id="progressContainer">
             <div class="progress-bar" id="progressBar"></div>
@@ -71,18 +73,21 @@
             </div>
             <div class="options-grid" id="optionsGrid"></div>
             <div id="feedback" class="feedback-msg"></div>
-            <div id="mnemonicContainer" style="margin-top: 15px;"></div>
           </div>
 
-          <!-- 单题模式导航按钮组（始终显示并贴近下方） -->
+          <!-- 1. 单题模式导航按钮组 -->
           <div class="nav-btn-group" id="navBtnGroup">
             <button id="prevBtn" class="nav-action-btn">⬅️ 上一题</button>
             <button id="nextBtn" class="nav-action-btn primary">
               下一题 ➡️
             </button>
           </div>
+
+          <!-- 2. ✨【核心修复】助记容器严格放在按钮组下方，宽度会自动填满整行 -->
+          <div id="mnemonicContainer" style="margin-top: 15px; width: 100%;"></div>
         </div>
 
+        <!-- 右侧：控制面板（导入、答题卡、概览） -->
         <div class="right-panel">
           <div class="card upload-section">
             <h3>📂 题库导入与备份</h3>
@@ -132,7 +137,7 @@
             </div>
           </div>
 
-          <!-- 1. 答题卡移至上方，并获得更充足高度 -->
+          <!-- 答题卡区 -->
           <div
             class="card answer-card-zone"
             id="answerCardZone"
@@ -153,7 +158,7 @@
             </div>
           </div>
 
-          <!-- 2. 复习预测移至下方，体积紧凑 -->
+          <!-- 复习预测概览区 -->
           <div class="card ebbinghaus-summary-zone" id="ebbSummaryZone">
             <h3>⏳ 艾宾浩斯复习预测概览</h3>
             <div class="ebb-summary-list" id="ebbSummaryList">
@@ -181,6 +186,7 @@
           </div>
         </div>
       </div>
+
     </div>
     <script src="mnemonic.js"></script>
     <script src="script.js"></script>

@@ -861,6 +861,7 @@ function loadReviewQuestion() {
   const grid = document.getElementById("ebbOptionsGrid");
   const feed = document.getElementById("ebbFeedback");
   const ebbNextBtn = document.getElementById("ebbNextBtn");
+  const ebbMnemonicContainer = document.getElementById("ebbMnemonicContainer"); // ✨ 获取助记容器
 
   if (currentReviewPointer >= currentReviewIndexList.length) {
     alert("✨ 恭喜！当前批次的到期复习题目已全部剿灭！");
@@ -875,6 +876,11 @@ function loadReviewQuestion() {
 
   if (feed) feed.innerText = "";
   if (ebbNextBtn) ebbNextBtn.style.display = "none";
+
+  // ✨【新增】加载题目时，自动解析并在下一题按钮下方渲染助记内容
+  if (ebbMnemonicContainer && item.word && typeof analyzeWordMnemonic === "function") {
+    ebbMnemonicContainer.innerHTML = analyzeWordMnemonic(item.word);
+  }
 
   const ebbWordDisplay = document.getElementById("ebbWordDisplay");
   if (ebbWordDisplay) {
@@ -941,7 +947,7 @@ function loadReviewQuestion() {
           if (ebbNextBtn) ebbNextBtn.style.display = "block";
 
           saveProgressToLocal();
-          updateEbbinghausSummary(); // ❌ 移除渲染 renderEbbinghausView()，防止页面直接被刷新跳过
+          updateEbbinghausSummary();
         }
       };
       grid.appendChild(btn);
@@ -1303,11 +1309,60 @@ if (resetProgressBtn) {
 }
 
 window.addEventListener("DOMContentLoaded", autoRecoverOnRefresh);
+
 // ==========================================
-// 键盘快捷键监听逻辑
+// 艾宾浩斯专属切题与提交逻辑（强规则约束）
+// ==========================================
+
+/**
+ * 艾宾浩斯复习：查看上一题
+ */
+function ebbGoPrevQuestion() {
+  if (!currentReviewIndexList || currentReviewIndexList.length === 0) return;
+
+  if (currentReviewPointer > 0) {
+    currentReviewPointer--;
+    loadReviewQuestion();
+  } else {
+    const feed = document.getElementById("ebbFeedback");
+    if (feed) {
+      feed.innerText = "ℹ️ 当前已经是复习队列的第一题了！";
+      feed.style.color = "var(--primary-color, #3498db)";
+    }
+  }
+}
+
+/**
+ * 艾宾浩斯复习：按右方向键提交/进入下一题
+ */
+function ebbSubmitOrNextQuestion() {
+  if (!currentReviewIndexList || currentReviewIndexList.length === 0) return;
+
+  const mainIdx = currentReviewIndexList[currentReviewPointer];
+  const item = vocabList[mainIdx];
+  if (!item) return;
+
+  // 🔒 规则拦截：当前题目尚未完成作答，不允许直接进入下一题！
+  if (item.userStatus === "unanswered") {
+    const feed = document.getElementById("ebbFeedback");
+    if (feed) {
+      feed.innerText = "⚠️ 请先做出选择完成当前题目后，再按右方向键 (→) 或点击下一题！";
+      feed.style.color = "var(--danger-text, #e74c3c)";
+    }
+    return;
+  }
+
+  // 当前题目已完成，正常切到下一题
+  currentReviewPointer++;
+  renderEbbinghausView();
+  loadReviewQuestion();
+}
+
+// ==========================================
+// 全局键盘快捷键响应中心 (适配多 Tab)
 // ==========================================
 document.addEventListener("keydown", (e) => {
-  // 避免用户在输入框、文本域中打字时误触发快捷键
+  // 避开输入框打字场景
   const activeTag = document.activeElement
     ? document.activeElement.tagName.toLowerCase()
     : "";
@@ -1315,39 +1370,77 @@ document.addEventListener("keydown", (e) => {
 
   const key = e.key;
 
-  // 1. 切题逻辑：A / LeftArrow (上一题)
+  // 判断当前处于哪一个 Tab
+  const activeTabBtn = document.querySelector(".nav-tabs .tab-btn.active");
+  const activeTabId = activeTabBtn ? activeTabBtn.getAttribute("data-tab") : "";
+
+  // --------------------------------------------------
+  // 场景 A：当前处于【⏳ 艾宾浩斯复习】界面
+  // --------------------------------------------------
+  if (activeTabId === "ebbinghausTab") {
+    const ebbZone = document.getElementById("ebbReviewZone");
+    if (ebbZone && ebbZone.style.display !== "none") {
+      
+      // ⬅️ 左方向键 (←) / A 键：查看上一题
+      if (key === "ArrowLeft" || key === "a" || key === "A") {
+        e.preventDefault();
+        ebbGoPrevQuestion();
+      }
+
+      // ➔ 右方向键 (→) / Enter / Space：提交并切换下一题
+      if (key === "ArrowRight" || key === "d" || key === "D" || key === "Enter" || key === " ") {
+        e.preventDefault();
+        ebbSubmitOrNextQuestion();
+      }
+
+      // 数字键 1-4：选择对应选项
+      if (["1", "2", "3", "4"].includes(key)) {
+        e.preventDefault();
+        const optIndex = parseInt(key, 10) - 1;
+        const ebbGrid = document.getElementById("ebbOptionsGrid");
+        if (ebbGrid) {
+          const btns = ebbGrid.querySelectorAll(".opt-btn");
+          if (btns && btns[optIndex] && !btns[optIndex].disabled) {
+            btns[optIndex].click();
+          }
+        }
+      }
+    }
+    return;
+  }
+
+  // --------------------------------------------------
+  // 场景 B：【📝 今日刷题】界面（主页）
+  // --------------------------------------------------
   if (key === "a" || key === "A" || key === "ArrowLeft") {
     e.preventDefault();
     if (prevBtn) prevBtn.click();
   }
 
-  // 2. 切题逻辑：D / RightArrow (下一题)
   if (key === "d" || key === "D" || key === "ArrowRight") {
     e.preventDefault();
     if (nextBtn) nextBtn.click();
   }
 
-  // 3. 提交/确认逻辑：W / Enter
-  if (key === "w" || key === "W" || key === "Enter") {
+  // 快捷键 W 保持切下一题
+  if (key === "w" || key === "W") {
     e.preventDefault();
-    // 单题模式下尝试触发“下一题”或艾宾浩斯复习页面的“下一题”
-    const ebbNextBtn = document.getElementById("ebbNextBtn");
-    if (ebbNextBtn && ebbNextBtn.style.display !== "none") {
-      ebbNextBtn.click();
-    } else if (nextBtn) {
-      nextBtn.click();
+    if (nextBtn) nextBtn.click();
+  }
+
+  // ✨【核心修改】：主页按 Enter 键再次朗读当前单词
+  if (key === "Enter") {
+    e.preventDefault();
+    if (vocabList.length > 0 && vocabList[currentIndex]) {
+      speakWord(vocabList[currentIndex].word);
     }
   }
 
-  // 4. 数字键选择逻辑：1 - 4（主键盘及小键盘）
+  // 数字键 1-4：选择对应选项
   if (["1", "2", "3", "4"].includes(key)) {
     e.preventDefault();
     const optIndex = parseInt(key, 10) - 1;
-
-    // 优先匹配当前单题模式容器
-    const currentContainer =
-      document.getElementById("optionsGrid") ||
-      document.getElementById("ebbOptionsGrid");
+    const currentContainer = document.getElementById("optionsGrid");
     if (currentContainer) {
       const options = currentContainer.querySelectorAll(".opt-btn");
       if (options && options[optIndex] && !options[optIndex].disabled) {
@@ -1356,7 +1449,6 @@ document.addEventListener("keydown", (e) => {
     }
   }
 });
-
 // 监听 Tab 切换，防止隐藏状态下的 Chart.js 渲染为空白
 const navTabs = document.querySelectorAll(".nav-tabs .tab-btn");
 navTabs.forEach((btn) => {
