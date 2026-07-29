@@ -196,6 +196,46 @@ if (themeToggleBtn) {
 }
 initTheme();
 
+
+
+let isCtphAnsHidden = false; // ✨ 标识全库错题面板是否隐藏中文答案
+
+document.addEventListener("DOMContentLoaded", () => {
+  // ✨ 初始化全库错题界面的“眼睛开关”
+  const ctphToggleAnsBtn = document.getElementById("ctphToggleAnsBtn");
+  if (ctphToggleAnsBtn) {
+    const savedState = localStorage.getItem("CTPH_HIDE_ANS_ENABLED");
+    if (savedState !== null) {
+      isCtphAnsHidden = savedState === "true";
+      updateCtphEyeUI();
+    }
+
+    ctphToggleAnsBtn.addEventListener("click", () => {
+      isCtphAnsHidden = !isCtphAnsHidden;
+      localStorage.setItem("CTPH_HIDE_ANS_ENABLED", isCtphAnsHidden);
+      updateCtphEyeUI();
+      updateTopWrongTable(vocabList); // 重新更新表格
+    });
+  }
+});
+
+// 更新眼睛按钮的 UI 显示状态
+function updateCtphEyeUI() {
+  const eyeIcon = document.getElementById("ctphEyeIcon");
+  const eyeText = document.getElementById("ctphEyeText");
+  if (eyeIcon && eyeText) {
+    if (isCtphAnsHidden) {
+      eyeIcon.innerText = "🙈";
+      eyeText.innerText = "显示答案";
+    } else {
+      eyeIcon.innerText = "👁️";
+      eyeText.innerText = "隐藏答案";
+    }
+  }
+}
+
+
+
 // ==========================================
 // 文件导入与解析逻辑（真正精确识别：同名保留，异名重置）
 // ==========================================
@@ -1752,7 +1792,7 @@ function renderAnalysisCharts(list) {
 }
 
 // ==========================================
-// 独立全局函数 - 更新高频错题排行榜（支持全部显示与多级筛选）
+// 独立全局函数 - 更新高频错题排行榜（支持全部显示、朗读、答案显隐与多级筛选）
 // ==========================================
 function updateTopWrongTable(list) {
   const dataList = list || (typeof vocabList !== "undefined" ? vocabList : []);
@@ -1788,7 +1828,7 @@ function updateTopWrongTable(list) {
   }
 
   // ----------------------------------------------------
-  // 3. 渲染 ⚠️ 错题排行 Tab 页面 (显示全部 + 支持动态筛选)
+  // 3. 渲染 ⚠️ 错题排行 Tab 页面 (显示全部 + 带发音按钮 + 支持答案显隐控制)
   // ----------------------------------------------------
   if (tbodyCtph) {
     // 获取用户选择的筛选阈值
@@ -1810,15 +1850,28 @@ function updateTopWrongTable(list) {
     if (filteredList.length === 0) {
       tbodyCtph.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 40px 0;">🔍 没有找到答错次数 ≥ ${minErrCount} 次的题目</td></tr>`;
     } else {
-      // 不截断（slice），完整渲染符合条件的所有错题
       tbodyCtph.innerHTML = filteredList
         .map((item, index) => {
           const errTimes = item.errorCount || item.wrongCount || 1;
+          const cleanWord = (item.word || item.title || "").replace(/'/g, "\\'");
+          
+          // 根据眼睛开关判定答案显示遮罩或文本
+          const displayAns = isCtphAnsHidden ? "🙈 ***" : (item.answer || "--");
+
           return `
           <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
             <td style="padding: 12px; font-weight: bold; color: ${index < 3 ? "#e74c3c" : "inherit"};">#${index + 1}</td>
-            <td style="padding: 12px;"><strong>${item.word || item.title || "未命名题目"}</strong></td>
-            <td style="padding: 12px; color: var(--success-text);">${item.answer || "--"}</td>
+            <td style="padding: 12px;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <strong>${item.word || item.title || "未命名题目"}</strong>
+                <!-- ✨ 单词旁的朗读发音按钮 -->
+                <button type="button" class="audio-play-btn" title="朗读发音" style="padding: 2px 6px; font-size: 13px;" onclick="speakWord('${cleanWord}')">
+                  🔊
+                </button>
+              </div>
+            </td>
+            <!-- ✨ 支持遮罩/显隐的中文答案 -->
+            <td style="padding: 12px; color: ${isCtphAnsHidden ? "var(--text-muted)" : "var(--success-text)"};">${displayAns}</td>
             <td style="padding: 12px; text-align: center; color: #e74c3c; font-weight: bold;">${errTimes} 次</td>
             <td style="padding: 12px; text-align: center;"><span class="badge">L${item.stage !== undefined ? item.stage : 0}</span></td>
           </tr>
@@ -1862,7 +1915,6 @@ function updateTopWrongTable(list) {
 
   if (tbodyEbb) tbodyEbb.innerHTML = rowsHtml;
 }
-
 // ----------------------------------------------------
 // 绑定下拉框筛选事件：切换条件时即时重新刷新列表
 // ----------------------------------------------------

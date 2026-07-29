@@ -235,6 +235,9 @@
         <h2 style="color: #e74c3c; margin: 0; display: inline-block;">⚠️ 全库错题排行榜</h2>
         <span id="ctphTotalCountTip" style="font-size: 13px; color: var(--text-muted); margin-left: 10px;">(共 0 道错题)</span>
       </div>
+
+
+
       
       <!-- 🔍 错误次数筛选器 -->
       <div style="display: flex; align-items: center; gap: 8px;">
@@ -256,6 +259,13 @@
             <th style="padding: 12px;">排名</th>
             <th style="padding: 12px;">题目 / 单词</th>
             <th style="padding: 12px;">正确答案</th>
+                  <!-- 右侧控制工具区：眼睛开关 + 筛选器 -->
+      <div style="display: flex; align-items: center; gap: 15px;">
+        <!-- ✨ 新增：中文答案隐藏/显示 Toggle 开关 -->
+        <button id="ctphToggleAnsBtn" style="background: transparent; border: 1px solid rgba(255,255,255,0.2); color: inherit; padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 5px;" title="点击切换答案隐显">
+          <span id="ctphEyeIcon">👁️</span>
+          <span id="ctphEyeText">隐藏答案</span>
+        </button>
             <th style="padding: 12px; text-align: center;">答错次数</th>
             <th style="padding: 12px; text-align: center;">当前熟练度</th>
           </tr>
