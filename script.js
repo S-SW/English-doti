@@ -7,6 +7,8 @@ let isFullPaperMode = false;
 let currentDbKey = ""; // 当前文件的本地缓存唯一识别 Key
 let isAutoNextEnabled = true;
 let isAutoSpeakEnabled = true; // ✨ 新增：下一题自动朗读单词开关状态（默认开启）
+let isEbbWordHidden = false; // ✨ 标识艾宾浩斯复习模式下是否隐藏单词
+
 
 // 艾宾浩斯时间跨度表 (单位：毫秒)
 const EBB_INTERVALS = [
@@ -123,6 +125,24 @@ if (autoNextToggle) {
   autoNextToggle.addEventListener("change", (e) => {
     isAutoNextEnabled = e.target.checked;
     localStorage.setItem("EBB_AUTO_NEXT_ENABLED", isAutoNextEnabled);
+  });
+}
+
+
+// ✨ 初始化“艾宾浩斯隐藏单词开关”
+const ebbHideWordToggle = document.getElementById("ebbHideWordToggle");
+if (ebbHideWordToggle) {
+  const savedHideState = localStorage.getItem("EBB_HIDE_WORD_ENABLED");
+  if (savedHideState !== null) {
+    isEbbWordHidden = savedHideState === "true";
+    ebbHideWordToggle.checked = isEbbWordHidden;
+  }
+
+  ebbHideWordToggle.addEventListener("change", (e) => {
+    isEbbWordHidden = e.target.checked;
+    localStorage.setItem("EBB_HIDE_WORD_ENABLED", isEbbWordHidden);
+    // 切换开关时重新载入当前复习题目以更新显示状态
+    loadReviewQuestion();
   });
 }
 
@@ -882,15 +902,20 @@ function loadReviewQuestion() {
     ebbMnemonicContainer.innerHTML = analyzeWordMnemonic(item.word);
   }
 
-  const ebbWordDisplay = document.getElementById("ebbWordDisplay");
+const ebbWordDisplay = document.getElementById("ebbWordDisplay");
   if (ebbWordDisplay) {
+    // ✨ 根据开关状态判断是显示单词本身还是显示占位遮罩
+    const displayWordText = isEbbWordHidden ? "❓ ❓ ❓" : item.word;
+
     ebbWordDisplay.innerHTML = `
-      <span>【复习第 ${item.id} 题】 ${item.word}</span>
+      <span>【复习第 ${item.id} 题】 ${displayWordText}</span>
       <button type="button" class="audio-play-btn" title="朗读发音" onclick="speakWord('${item.word.replace(/'/g, "\\'")}')">
         🔊
       </button>
     `;
-    if (isAutoSpeakEnabled) {
+    
+    // 自动朗读单词发音（隐藏单词模式下依靠声音听辨选择）
+    if (typeof isAutoSpeakEnabled === "undefined" || isAutoSpeakEnabled) {
       speakWord(item.word);
     }
   }
@@ -901,9 +926,14 @@ function loadReviewQuestion() {
       const btn = document.createElement("button");
       btn.className = "opt-btn";
       btn.innerText = option;
-      btn.onclick = () => {
+btn.onclick = () => {
         const buttons = grid.querySelectorAll(".opt-btn");
         buttons.forEach((b) => (b.disabled = true));
+
+        // ✨ 答题后取消遮罩，揭晓原单词
+        if (ebbWordDisplay) {
+          ebbWordDisplay.querySelector("span").innerText = `【复习第 ${item.id} 题】 ${item.word}`;
+        }
 
         if (option === item.answer) {
           // ---------------- 【答对逻辑】 ----------------

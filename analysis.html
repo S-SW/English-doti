@@ -129,15 +129,24 @@
         <!-- 🌟 核心布局：左右双栏并排结构 -->
         <div class="analysis-charts-grid" style="grid-template-columns: 1.6fr 1fr; gap: 20px; align-items: start;">
           
-          <!-- 👈 左侧：单词复习模式（核心答题区） -->
-          <div class="card ebb-action-panel" style="border: 1px solid var(--primary-color, #3498db); min-height: 480px;">
-            <h3 style="color: var(--primary-color, #3498db); border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px;">
-              🔥 智能深度特训：单词复习模式
-            </h3>
-            
-            <div class="review-status-bar" id="reviewStatusBar" style="margin-top: 15px;">
-              当前无到期应复习题目
-            </div>
+<!-- 👈 左侧：单词复习模式（核心答题区） -->
+<div class="card ebb-action-panel" style="border: 1px solid var(--primary-color, #3498db); min-height: 480px;">
+  <!-- 🌟 修改处：使用 flex 布局将标题与隐藏开关水平并排 -->
+  <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px;">
+    <h3 style="color: var(--primary-color, #3498db); margin: 0;">
+      🔥 智能深度特训：单词复习模式
+    </h3>
+    
+    <!-- ✨ 新增：单词隐藏/显示 Toggle 开关 -->
+    <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-muted); cursor: pointer; user-select: none;">
+      <input type="checkbox" id="ebbHideWordToggle" style="cursor: pointer;">
+      <span>🙈 隐藏单词 (听音模式)</span>
+    </label>
+  </div>
+  
+  <div class="review-status-bar" id="reviewStatusBar" style="margin-top: 15px;">
+    当前无到期应复习题目
+  </div>
 
             <div
               class="card quiz-zone"
