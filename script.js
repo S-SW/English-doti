@@ -1572,23 +1572,41 @@ function renderAnalysisCharts(list) {
     // 理论保留率数据点 (艾宾浩斯经典曲线 approx)
     const theoryData = [100, 58.2, 44.2, 35.8, 33.7, 27.8, 25.4, 21.1];
 
-    // 计算实际保留率：各个阶段（L0-L8）题目中，非错误题目的占比
-    const totalCount = dataList.length;
-    const stageCorrectCounts = Array(8).fill(0);
+// 1. 统计各个艾宾浩斯阶段（L0~L7）中【已作答题目数】与【正确/已巩固题目数】
+    const stageTotalCounts = Array(8).fill(0);   // 每个阶段已做过的总题数
+    const stageCorrectCounts = Array(8).fill(0); // 每个阶段答对/保留的题数
 
     dataList.forEach((item) => {
+      // 过滤未作答的题目，未答题目不参与保留率计算
+      if (!item.userStatus || item.userStatus === "unanswered") return;
+
       const s = Math.min(Math.max(item.stage || 0, 0), 7);
+      stageTotalCounts[s]++;
+
+      // 只要该题状态是 correct 或者熟练度处于巩固阶段 (stage > 0)
       if (item.userStatus === "correct" || item.stage > 0) {
         stageCorrectCounts[s]++;
       }
     });
 
-    // 计算实际保留百分比
-    let accumulated = 0;
-    const actualData = stageCorrectCounts.map((count) => {
-      accumulated += count;
-      return totalCount > 0 ? Math.round((accumulated / totalCount) * 100) : 0;
+    // 2. 统计全局已作答的整体保留率，作为各阶段的备用参考基准
+    const grandTotalAnswered = dataList.filter(i => i.userStatus && i.userStatus !== "unanswered").length;
+    const grandTotalCorrect = dataList.filter(i => i.userStatus === "correct" || i.stage > 0).length;
+    const overallRetention = grandTotalAnswered > 0 ? Math.round((grandTotalCorrect / grandTotalAnswered) * 100) : 0;
+
+    // 3. 对应计算 8 个节点的实际保留率 (%)
+    const actualData = stageTotalCounts.map((total, idx) => {
+      if (total > 0) {
+        // 如果该节点有作答数据，按该节点比例计算
+        return Math.round((stageCorrectCounts[idx] / total) * 100);
+      } else {
+        // 如果该阶段暂时没有样本数据：
+        // 若整体有答题数据，则平滑显示整体正确率；若一道题都没做过，则返回 0
+        return overallRetention;
+      }
     });
+
+
 
     if (window.ebbCurveChartInstance) window.ebbCurveChartInstance.destroy();
 
@@ -1968,3 +1986,85 @@ function speakWord(word) {
 
   window.speechSynthesis.speak(utterance);
 }
+
+
+// ==========================================
+// 全局错题导出 Excel 功能 (精简版：仅保留图片中的 6 列)
+// ==========================================
+function exportWrongToExcel() {
+  if (typeof XLSX === "undefined") {
+    alert("❌ Excel 导出库 (xlsx.js) 未加载成功，请刷新页面或检查网络链接！");
+    return;
+  }
+
+  if (!vocabList || vocabList.length === 0) {
+    alert("⚠️ 当前没有载入任何题库数据！");
+    return;
+  }
+
+  // 1. 获取当前筛选阀值
+  const filterSelect = document.getElementById("ctphFilterSelect");
+  const minErrCount = filterSelect ? parseInt(filterSelect.value, 10) || 0 : 0;
+
+  // 2. 筛选错题 (错题次数 >= minErrCount 且 > 0)
+  const wrongList = vocabList
+    .filter((item) => (item.errorCount || item.wrongCount || 0) > 0 && (item.errorCount || item.wrongCount || 0) >= minErrCount)
+    .sort((a, b) => (b.errorCount || b.wrongCount || 0) - (a.errorCount || a.wrongCount || 0));
+
+  if (wrongList.length === 0) {
+    alert("⚠️ 当前筛选条件下没有任何错题可供导出！");
+    return;
+  }
+
+  // 3. 仅映射指定的 6 个核心列
+  const excelRows = wrongList.map((item, index) => {
+    return {
+      "错题排名": index + 1,
+      "题目ID": item.id || index + 1,
+      "单词 / 核心题目": item.word || item.title || "",
+      "正确答案": item.answer || "",
+      "答错次数": item.errorCount || item.wrongCount || 1,
+      "艾宾浩斯熟练度": `L${item.stage !== undefined ? item.stage : 0}`
+    };
+  });
+
+  // 4. 生成 WorkSheet 与 WorkBook
+  const worksheet = XLSX.utils.json_to_sheet(excelRows);
+
+  // 设置精准匹配的列宽
+  worksheet["!cols"] = [
+    { wch: 10 }, // 错题排名
+    { wch: 10 }, // 题目ID
+    { wch: 25 }, // 单词 / 核心题目
+    { wch: 30 }, // 正确答案
+    { wch: 12 }, // 答错次数
+    { wch: 16 }  // 艾宾浩斯熟练度
+  ];
+
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "错题集汇总");
+
+  // 5. 导出文件
+  const dateStr = new Date().toISOString().slice(0, 10);
+  XLSX.writeFile(workbook, `错题排行榜_${dateStr}.xlsx`);
+}
+// ==========================================
+// 页面加载完成后自动绑定事件
+// ==========================================
+document.addEventListener("DOMContentLoaded", () => {
+  // 1. 绑定错题 Excel 导出按钮点击事件
+  const exportExcelBtn = document.getElementById("ctphExportExcelBtn");
+  if (exportExcelBtn) {
+    exportExcelBtn.addEventListener("click", exportWrongToExcel);
+  }
+
+  // 2. 如果页面上有筛选器变更事件，也可在这里绑定自动刷新
+  const filterSelect = document.getElementById("ctphFilterSelect");
+  if (filterSelect) {
+    filterSelect.addEventListener("change", () => {
+      if (typeof updateTopWrongTable === "function") {
+        updateTopWrongTable();
+      }
+    });
+  }
+});

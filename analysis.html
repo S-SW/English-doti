@@ -7,6 +7,8 @@
     <link rel="stylesheet" href="style.css" />
     <!-- 引入 Chart.js 图表库 -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- 引入 SheetJS 库用于导出 Excel -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   </head>
   <body>
     <div class="fullscreen-container">
@@ -226,46 +228,50 @@
         </div>
       </div>
 
-      <!-- 3. 全局错题排行界面 (ctphTab) -->
+<!-- 3. 全局错题排行界面 (ctphTab) -->
 <div class="tab-content" id="ctphTab">
   <div class="card" style="min-height: 500px; padding: 20px;">
-    <!-- 顶部标题与筛选工具栏 -->
+    <!-- 顶部标题与筛选/控制工具栏 -->
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px; flex-wrap: wrap; gap: 10px;">
       <div>
         <h2 style="color: #e74c3c; margin: 0; display: inline-block;">⚠️ 全库错题排行榜</h2>
         <span id="ctphTotalCountTip" style="font-size: 13px; color: var(--text-muted); margin-left: 10px;">(共 0 道错题)</span>
       </div>
 
+      <!-- 右侧控制工具区：导出 Excel + 眼睛开关 + 筛选器 -->
+      <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+        <!-- ✨ 导出 Excel 按钮 -->
+        <button id="ctphExportExcelBtn" style="background: #27ae60; color: #fff; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: bold; display: flex; align-items: center; gap: 5px; transition: background 0.2s;" title="导出当前筛选的错题及其完整数据为 Excel">
+          <span>📥</span> 导出错题 Excel
+        </button>
 
+        <!-- 答案隐显 Toggle 开关 -->
+        <button id="ctphToggleAnsBtn" style="background: transparent; border: 1px solid rgba(255,255,255,0.2); color: inherit; padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 5px;" title="点击切换答案隐显">
+          <span id="ctphEyeIcon">👁️</span>
+          <span id="ctphEyeText">隐藏答案</span>
+        </button>
 
-      
-      <!-- 🔍 错误次数筛选器 -->
-      <div style="display: flex; align-items: center; gap: 8px;">
-        <label for="ctphFilterSelect" style="font-size: 14px; color: var(--text-muted);">筛选错误次数：</label>
-        <select id="ctphFilterSelect" style="padding: 6px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); background: var(--bg-card, #2c3e50); color: inherit; cursor: pointer; font-size: 14px;">
-          <option value="0">全部错题 (≥1次)</option>
-          <option value="2">高频错题 (≥2次)</option>
-          <option value="3">顽固错题 (≥3次)</option>
-          <option value="5">极危错题 (≥5次)</option>
-        </select>
+        <!-- 🔍 错误次数筛选器 -->
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <label for="ctphFilterSelect" style="font-size: 14px; color: var(--text-muted);">筛选：</label>
+          <select id="ctphFilterSelect" style="padding: 6px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); background: var(--bg-card, #2c3e50); color: inherit; cursor: pointer; font-size: 14px;">
+            <option value="0">全部错题 (≥1次)</option>
+            <option value="2">高频错题 (≥2次)</option>
+            <option value="3">顽固错题 (≥3次)</option>
+            <option value="5">极危错题 (≥5次)</option>
+          </select>
+        </div>
       </div>
     </div>
 
     <!-- 错题表格列表 -->
-    <div class="table-wrapper" style="max-height: 600px; overflow-y: auto;">
+    <div class="table-wrapper" style="max-height: 800px; overflow-y: auto;">
       <table style="width: 100%; border-collapse: collapse; text-align: left;">
         <thead>
           <tr style="border-bottom: 1px solid rgba(255,255,255,0.1); color: var(--text-muted); font-size: 14px; position: sticky; top: 0; background: var(--bg-card, #2c3e50); z-index: 2;">
             <th style="padding: 12px;">排名</th>
             <th style="padding: 12px;">题目 / 单词</th>
             <th style="padding: 12px;">正确答案</th>
-                  <!-- 右侧控制工具区：眼睛开关 + 筛选器 -->
-      <div style="display: flex; align-items: center; gap: 15px;">
-        <!-- ✨ 新增：中文答案隐藏/显示 Toggle 开关 -->
-        <button id="ctphToggleAnsBtn" style="background: transparent; border: 1px solid rgba(255,255,255,0.2); color: inherit; padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 5px;" title="点击切换答案隐显">
-          <span id="ctphEyeIcon">👁️</span>
-          <span id="ctphEyeText">隐藏答案</span>
-        </button>
             <th style="padding: 12px; text-align: center;">答错次数</th>
             <th style="padding: 12px; text-align: center;">当前熟练度</th>
           </tr>
