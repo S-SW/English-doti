@@ -9,17 +9,17 @@ let isAutoNextEnabled = true;
 let isAutoSpeakEnabled = true; // ✨ 新增：下一题自动朗读单词开关状态（默认开启）
 let isEbbWordHidden = false; // ✨ 标识艾宾浩斯复习模式下是否隐藏单词
 
-
 // 艾宾浩斯时间跨度表 (单位：毫秒)
+// 优化后的长周期跨度：5h -> 1d -> 2d -> 4d -> 7d -> 15d -> 25d -> 30d
 const EBB_INTERVALS = [
-  5 * 60 * 1000, // L0 -> L1: 5分钟
-  30 * 60 * 1000, // L1 -> L2: 30分钟
-  12 * 60 * 60 * 1000, // L2 -> L3: 12小时
-  1 * 24 * 60 * 60 * 1000, // L3 -> L4: 1天
-  2 * 24 * 60 * 60 * 1000, // L4 -> L5: 2天
-  4 * 24 * 60 * 60 * 1000, // L5 -> L6: 4天
-  7 * 24 * 60 * 60 * 1000, // L6 -> L7: 7天
-  15 * 24 * 60 * 60 * 1000, // L7 -> L8: 15天
+  5 * 60 * 60 * 1000, // L0 -> L1: 5小时
+  1 * 24 * 60 * 60 * 1000, // L1 -> L2: 1天
+  2 * 24 * 60 * 60 * 1000, // L2 -> L3: 2天
+  4 * 24 * 60 * 60 * 1000, // L3 -> L4: 4天
+  7 * 24 * 60 * 60 * 1000, // L4 -> L5: 7天
+  15 * 24 * 60 * 60 * 1000, // L5 -> L6: 15天
+  25 * 24 * 60 * 60 * 1000, // L6 -> L7: 25天
+  30 * 24 * 60 * 60 * 1000, // L7 -> L8: 30天
 ];
 
 // DOM 节点引用
@@ -128,7 +128,6 @@ if (autoNextToggle) {
   });
 }
 
-
 // ✨ 初始化“艾宾浩斯隐藏单词开关”
 const ebbHideWordToggle = document.getElementById("ebbHideWordToggle");
 if (ebbHideWordToggle) {
@@ -196,8 +195,6 @@ if (themeToggleBtn) {
 }
 initTheme();
 
-
-
 let isCtphAnsHidden = false; // ✨ 标识全库错题面板是否隐藏中文答案
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -233,8 +230,6 @@ function updateCtphEyeUI() {
     }
   }
 }
-
-
 
 // ==========================================
 // 文件导入与解析逻辑（真正精确识别：同名保留，异名重置）
@@ -803,11 +798,11 @@ function runDataAnalysis() {
   const distList = document.getElementById("stageDistributionList");
   if (distList) {
     distList.innerHTML = "";
-    const labels = [
+const labels = [
       "入门起点 L0 (刚刷/错题)",
-      "初学记忆 L1 (5-30分级)",
-      "稳固阶段 L2 (半天冷却)",
-      "熟练精通 L3+ (跨天记忆)",
+      "初学记忆 L1 (5小时/1天)",
+      "巩固阶段 L2 (2-4天周期)",
+      "熟练精通 L3+ (7天以上长期记忆)",
     ];
 
     stageCounts.forEach((count, idx) => {
@@ -938,11 +933,15 @@ function loadReviewQuestion() {
   if (ebbNextBtn) ebbNextBtn.style.display = "none";
 
   // ✨【新增】加载题目时，自动解析并在下一题按钮下方渲染助记内容
-  if (ebbMnemonicContainer && item.word && typeof analyzeWordMnemonic === "function") {
+  if (
+    ebbMnemonicContainer &&
+    item.word &&
+    typeof analyzeWordMnemonic === "function"
+  ) {
     ebbMnemonicContainer.innerHTML = analyzeWordMnemonic(item.word);
   }
 
-const ebbWordDisplay = document.getElementById("ebbWordDisplay");
+  const ebbWordDisplay = document.getElementById("ebbWordDisplay");
   if (ebbWordDisplay) {
     // ✨ 根据开关状态判断是显示单词本身还是显示占位遮罩
     const displayWordText = isEbbWordHidden ? "❓ ❓ ❓" : item.word;
@@ -953,7 +952,7 @@ const ebbWordDisplay = document.getElementById("ebbWordDisplay");
         🔊
       </button>
     `;
-    
+
     // 自动朗读单词发音（隐藏单词模式下依靠声音听辨选择）
     if (typeof isAutoSpeakEnabled === "undefined" || isAutoSpeakEnabled) {
       speakWord(item.word);
@@ -966,13 +965,14 @@ const ebbWordDisplay = document.getElementById("ebbWordDisplay");
       const btn = document.createElement("button");
       btn.className = "opt-btn";
       btn.innerText = option;
-btn.onclick = () => {
+      btn.onclick = () => {
         const buttons = grid.querySelectorAll(".opt-btn");
         buttons.forEach((b) => (b.disabled = true));
 
         // ✨ 答题后取消遮罩，揭晓原单词
         if (ebbWordDisplay) {
-          ebbWordDisplay.querySelector("span").innerText = `【复习第 ${item.id} 题】 ${item.word}`;
+          ebbWordDisplay.querySelector("span").innerText =
+            `【复习第 ${item.id} 题】 ${item.word}`;
         }
 
         if (option === item.answer) {
@@ -1107,10 +1107,6 @@ function updateEbbinghausSummary() {
   if (el7d) el7d.innerText = `${in7d} 题`;
   if (elSafe) elSafe.innerText = `${safe} 题`;
 }
-
-// ⚠️ 注意：请将 updateEbbinghausSummary() 加入到答题响应函数中
-// 在 handleAnswerCore(...) 函数里的 saveProgressToLocal() 后面添加一行：
-// updateEbbinghausSummary();
 
 // ==========================================
 // 恢复现场逻辑
@@ -1416,7 +1412,8 @@ function ebbSubmitOrNextQuestion() {
   if (item.userStatus === "unanswered") {
     const feed = document.getElementById("ebbFeedback");
     if (feed) {
-      feed.innerText = "⚠️ 请先做出选择完成当前题目后，再按右方向键 (→) 或点击下一题！";
+      feed.innerText =
+        "⚠️ 请先做出选择完成当前题目后，再按右方向键 (→) 或点击下一题！";
       feed.style.color = "var(--danger-text, #e74c3c)";
     }
     return;
@@ -1450,7 +1447,6 @@ document.addEventListener("keydown", (e) => {
   if (activeTabId === "ebbinghausTab") {
     const ebbZone = document.getElementById("ebbReviewZone");
     if (ebbZone && ebbZone.style.display !== "none") {
-      
       // ⬅️ 左方向键 (←) / A 键：查看上一题
       if (key === "ArrowLeft" || key === "a" || key === "A") {
         e.preventDefault();
@@ -1458,7 +1454,13 @@ document.addEventListener("keydown", (e) => {
       }
 
       // ➔ 右方向键 (→) / Enter / Space：提交并切换下一题
-      if (key === "ArrowRight" || key === "d" || key === "D" || key === "Enter" || key === " ") {
+      if (
+        key === "ArrowRight" ||
+        key === "d" ||
+        key === "D" ||
+        key === "Enter" ||
+        key === " "
+      ) {
         e.preventDefault();
         ebbSubmitOrNextQuestion();
       }
@@ -1572,8 +1574,8 @@ function renderAnalysisCharts(list) {
     // 理论保留率数据点 (艾宾浩斯经典曲线 approx)
     const theoryData = [100, 58.2, 44.2, 35.8, 33.7, 27.8, 25.4, 21.1];
 
-// 1. 统计各个艾宾浩斯阶段（L0~L7）中【已作答题目数】与【正确/已巩固题目数】
-    const stageTotalCounts = Array(8).fill(0);   // 每个阶段已做过的总题数
+    // 1. 统计各个艾宾浩斯阶段（L0~L7）中【已作答题目数】与【正确/已巩固题目数】
+    const stageTotalCounts = Array(8).fill(0); // 每个阶段已做过的总题数
     const stageCorrectCounts = Array(8).fill(0); // 每个阶段答对/保留的题数
 
     dataList.forEach((item) => {
@@ -1590,9 +1592,16 @@ function renderAnalysisCharts(list) {
     });
 
     // 2. 统计全局已作答的整体保留率，作为各阶段的备用参考基准
-    const grandTotalAnswered = dataList.filter(i => i.userStatus && i.userStatus !== "unanswered").length;
-    const grandTotalCorrect = dataList.filter(i => i.userStatus === "correct" || i.stage > 0).length;
-    const overallRetention = grandTotalAnswered > 0 ? Math.round((grandTotalCorrect / grandTotalAnswered) * 100) : 0;
+    const grandTotalAnswered = dataList.filter(
+      (i) => i.userStatus && i.userStatus !== "unanswered",
+    ).length;
+    const grandTotalCorrect = dataList.filter(
+      (i) => i.userStatus === "correct" || i.stage > 0,
+    ).length;
+    const overallRetention =
+      grandTotalAnswered > 0
+        ? Math.round((grandTotalCorrect / grandTotalAnswered) * 100)
+        : 0;
 
     // 3. 对应计算 8 个节点的实际保留率 (%)
     const actualData = stageTotalCounts.map((total, idx) => {
@@ -1606,24 +1615,13 @@ function renderAnalysisCharts(list) {
       }
     });
 
-
-
     if (window.ebbCurveChartInstance) window.ebbCurveChartInstance.destroy();
 
     const ctxEbb = canvasEbb.getContext("2d");
     window.ebbCurveChartInstance = new Chart(ctxEbb, {
       type: "line",
       data: {
-        labels: [
-          "5分钟",
-          "30分钟",
-          "12小时",
-          "1天",
-          "2天",
-          "4天",
-          "7天",
-          "15天",
-        ],
+        labels: ["5小时", "1天", "2天", "4天", "7天", "15天", "25天", "30天"],
         datasets: [
           {
             label: "艾宾浩斯理论遗忘曲线 (%)",
@@ -1871,10 +1869,13 @@ function updateTopWrongTable(list) {
       tbodyCtph.innerHTML = filteredList
         .map((item, index) => {
           const errTimes = item.errorCount || item.wrongCount || 1;
-          const cleanWord = (item.word || item.title || "").replace(/'/g, "\\'");
-          
+          const cleanWord = (item.word || item.title || "").replace(
+            /'/g,
+            "\\'",
+          );
+
           // 根据眼睛开关判定答案显示遮罩或文本
-          const displayAns = isCtphAnsHidden ? "🙈 ***" : (item.answer || "--");
+          const displayAns = isCtphAnsHidden ? "🙈 ***" : item.answer || "--";
 
           return `
           <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
@@ -1987,7 +1988,6 @@ function speakWord(word) {
   window.speechSynthesis.speak(utterance);
 }
 
-
 // ==========================================
 // 全局错题导出 Excel 功能 (精简版：仅保留图片中的 6 列)
 // ==========================================
@@ -2008,8 +2008,16 @@ function exportWrongToExcel() {
 
   // 2. 筛选错题 (错题次数 >= minErrCount 且 > 0)
   const wrongList = vocabList
-    .filter((item) => (item.errorCount || item.wrongCount || 0) > 0 && (item.errorCount || item.wrongCount || 0) >= minErrCount)
-    .sort((a, b) => (b.errorCount || b.wrongCount || 0) - (a.errorCount || a.wrongCount || 0));
+    .filter(
+      (item) =>
+        (item.errorCount || item.wrongCount || 0) > 0 &&
+        (item.errorCount || item.wrongCount || 0) >= minErrCount,
+    )
+    .sort(
+      (a, b) =>
+        (b.errorCount || b.wrongCount || 0) -
+        (a.errorCount || a.wrongCount || 0),
+    );
 
   if (wrongList.length === 0) {
     alert("⚠️ 当前筛选条件下没有任何错题可供导出！");
@@ -2019,12 +2027,12 @@ function exportWrongToExcel() {
   // 3. 仅映射指定的 6 个核心列
   const excelRows = wrongList.map((item, index) => {
     return {
-      "错题排名": index + 1,
-      "题目ID": item.id || index + 1,
+      错题排名: index + 1,
+      题目ID: item.id || index + 1,
       "单词 / 核心题目": item.word || item.title || "",
-      "正确答案": item.answer || "",
-      "答错次数": item.errorCount || item.wrongCount || 1,
-      "艾宾浩斯熟练度": `L${item.stage !== undefined ? item.stage : 0}`
+      正确答案: item.answer || "",
+      答错次数: item.errorCount || item.wrongCount || 1,
+      艾宾浩斯熟练度: `L${item.stage !== undefined ? item.stage : 0}`,
     };
   });
 
@@ -2038,7 +2046,7 @@ function exportWrongToExcel() {
     { wch: 25 }, // 单词 / 核心题目
     { wch: 30 }, // 正确答案
     { wch: 12 }, // 答错次数
-    { wch: 16 }  // 艾宾浩斯熟练度
+    { wch: 16 }, // 艾宾浩斯熟练度
   ];
 
   const workbook = XLSX.utils.book_new();
