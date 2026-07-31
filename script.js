@@ -9,18 +9,18 @@ let isAutoNextEnabled = true;
 let isAutoSpeakEnabled = true; // ✨ 新增：下一题自动朗读单词开关状态（默认开启）
 let isEbbWordHidden = false; // ✨ 标识艾宾浩斯复习模式下是否隐藏单词
 
-// 艾宾浩斯时间跨度表 (单位：毫秒)
-// 优化后的长周期跨度：5h -> 1d -> 2d -> 4d -> 7d -> 15d -> 25d -> 30d
+// 艾宾浩斯复习时间间隔定义 (单位: 毫秒)
 const EBB_INTERVALS = [
-  5 * 60 * 60 * 1000, // L0 -> L1: 5小时
+  5 * 60 * 60 * 1000,      // L0 -> L1: 5小时
   1 * 24 * 60 * 60 * 1000, // L1 -> L2: 1天
   2 * 24 * 60 * 60 * 1000, // L2 -> L3: 2天
   4 * 24 * 60 * 60 * 1000, // L3 -> L4: 4天
   7 * 24 * 60 * 60 * 1000, // L4 -> L5: 7天
-  15 * 24 * 60 * 60 * 1000, // L5 -> L6: 15天
-  25 * 24 * 60 * 60 * 1000, // L6 -> L7: 25天
-  30 * 24 * 60 * 60 * 1000, // L7 -> L8: 30天
+  15 * 24 * 60 * 60 * 1000,// L5 -> L6: 15天
+  25 * 24 * 60 * 60 * 1000,// L6 -> L7: 25天
+  30 * 24 * 60 * 60 * 1000 // L7 -> L8: 30天
 ];
+
 
 // DOM 节点引用
 const vocabFileInput = document.getElementById("vocabFile");
@@ -1001,7 +1001,7 @@ function loadReviewQuestion() {
           // ---------------- 【答错逻辑】 ----------------
           btn.classList.add("wrong");
           if (feed) {
-            feed.innerText = `❌ 复习再次犯错！惩罚降回 L0，5分钟后重新排队。正确答案是：${item.answer}`;
+            feed.innerText = `❌ 复习再次犯错！惩罚降回 L0，5小时后重新排队。正确答案是：${item.answer}`;
             feed.style.color = "var(--danger-text)";
           }
           item.stage = 0;
