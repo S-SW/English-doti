@@ -11,16 +11,15 @@ let isEbbWordHidden = false; // ✨ 标识艾宾浩斯复习模式下是否隐�
 
 // 艾宾浩斯复习时间间隔定义 (单位: 毫秒)
 const EBB_INTERVALS = [
-  5 * 60 * 60 * 1000,      // L0 -> L1: 5小时
+  5 * 60 * 60 * 1000, // L0 -> L1: 5小时
   1 * 24 * 60 * 60 * 1000, // L1 -> L2: 1天
   2 * 24 * 60 * 60 * 1000, // L2 -> L3: 2天
   4 * 24 * 60 * 60 * 1000, // L3 -> L4: 4天
   7 * 24 * 60 * 60 * 1000, // L4 -> L5: 7天
-  15 * 24 * 60 * 60 * 1000,// L5 -> L6: 15天
-  25 * 24 * 60 * 60 * 1000,// L6 -> L7: 25天
-  30 * 24 * 60 * 60 * 1000 // L7 -> L8: 30天
+  15 * 24 * 60 * 60 * 1000, // L5 -> L6: 15天
+  25 * 24 * 60 * 60 * 1000, // L6 -> L7: 25天
+  30 * 24 * 60 * 60 * 1000, // L7 -> L8: 30天
 ];
-
 
 // DOM 节点引用
 const vocabFileInput = document.getElementById("vocabFile");
@@ -798,7 +797,7 @@ function runDataAnalysis() {
   const distList = document.getElementById("stageDistributionList");
   if (distList) {
     distList.innerHTML = "";
-const labels = [
+    const labels = [
       "入门起点 L0 (刚刷/错题)",
       "初学记忆 L1 (5小时/1天)",
       "巩固阶段 L2 (2-4天周期)",
@@ -2076,3 +2075,263 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
+// ==========================================
+// 🎮 Xbox 手柄刷题控制（支持全部模式）
+// 普通刷题 + 艾宾浩斯复习
+// ==========================================
+
+let gamepadIndex = null;
+let selectedOptionIndex = 0;
+let lastGamepadState = {};
+
+// 摇杆连发控制
+let stickTimer = {
+  up: null,
+  down: null,
+  left: null,
+  right: null,
+};
+
+let stickActive = {
+  up: false,
+  down: false,
+  left: false,
+  right: false,
+};
+
+// 手柄连接
+window.addEventListener("gamepadconnected", (e) => {
+  console.log("🎮 Xbox手柄已连接:", e.gamepad.id);
+
+  gamepadIndex = e.gamepad.index;
+});
+
+// 手柄断开
+window.addEventListener("gamepaddisconnected", () => {
+  console.log("🎮 Xbox手柄断开");
+
+  gamepadIndex = null;
+});
+
+// 获取当前页面选项按钮
+function getCurrentOptions() {
+  const activeTab = document.querySelector(".nav-tabs .tab-btn.active");
+
+  // 艾宾浩斯
+  if (activeTab && activeTab.getAttribute("data-tab") === "ebbinghausTab") {
+    const ebbGrid = document.getElementById("ebbOptionsGrid");
+
+    if (ebbGrid) return ebbGrid.querySelectorAll(".opt-btn");
+  }
+
+  // 普通刷题
+  const grid = document.getElementById("optionsGrid");
+
+  if (grid) return grid.querySelectorAll(".opt-btn");
+
+  return [];
+}
+
+// 🎮 手柄选中效果
+function highlightGamepadOption(buttons) {
+  buttons.forEach((btn) => {
+    btn.style.outline = "";
+    btn.style.transform = "";
+    btn.style.boxShadow = "";
+    btn.style.background = "";
+  });
+
+  const btn = buttons[selectedOptionIndex];
+
+  if (btn) {
+    // 蓝紫色科技高亮
+    btn.style.outline = "2px solid #6ba5ff";
+
+    btn.style.boxShadow =
+      "0 0 12px rgba(107,165,255,0.8), inset 0 0 8px rgba(107,165,255,0.25)";
+
+    btn.style.transform = "translateX(6px) scale(1.02)";
+
+    btn.style.transition = "all 0.15s ease";
+  }
+}
+// ============================
+// 摇杆连续移动
+// ============================
+
+function moveOption(direction, buttons) {
+  if (direction === "up") {
+    selectedOptionIndex--;
+
+    if (selectedOptionIndex < 0) selectedOptionIndex = buttons.length - 1;
+  }
+
+  if (direction === "down") {
+    selectedOptionIndex++;
+
+    if (selectedOptionIndex >= buttons.length) selectedOptionIndex = 0;
+  }
+
+  highlightGamepadOption(buttons);
+}
+
+// 判断是否艾宾浩斯
+function isEbbinghausMode() {
+  const activeTab = document.querySelector(".nav-tabs .tab-btn.active");
+
+  return activeTab && activeTab.getAttribute("data-tab") === "ebbinghausTab";
+}
+
+// 手柄主循环
+function pollGamepad() {
+  if (gamepadIndex === null) {
+    requestAnimationFrame(pollGamepad);
+
+    return;
+  }
+
+  const gp = navigator.getGamepads()[gamepadIndex];
+
+  if (!gp) {
+    requestAnimationFrame(pollGamepad);
+
+    return;
+  }
+
+  const buttons = getCurrentOptions();
+
+  if (buttons.length) {
+    const x = gp.axes[0];
+
+    const y = gp.axes[1];
+
+    // ==========================
+    // ↑ 上一个选项
+    // ==========================
+    // ==========================
+    // 摇杆 ↑ 连续移动
+    // ==========================
+
+    if (y < -0.7) {
+      if (!stickActive.up) {
+        moveOption("up", buttons);
+
+        stickActive.up = true;
+
+        // 0.35秒后开始连发
+        stickTimer.up = setTimeout(() => {
+          stickTimer.up = setInterval(() => {
+            moveOption("up", buttons);
+          }, 120);
+        }, 350);
+      }
+    } else {
+      stickActive.up = false;
+
+      clearTimeout(stickTimer.up);
+
+      clearInterval(stickTimer.up);
+    }
+
+    // ==========================
+    // ↓ 下一个选项
+    // ==========================
+    // ==========================
+    // 摇杆 ↓ 连续移动
+    // ==========================
+
+    if (y > 0.7) {
+      if (!stickActive.down) {
+        moveOption("down", buttons);
+
+        stickActive.down = true;
+
+        stickTimer.down = setTimeout(() => {
+          stickTimer.down = setInterval(() => {
+            moveOption("down", buttons);
+          }, 120);
+        }, 350);
+      }
+    } else {
+      stickActive.down = false;
+
+      clearTimeout(stickTimer.down);
+
+      clearInterval(stickTimer.down);
+    }
+
+    // ==========================
+    // ← 上一题
+    // ==========================
+    if (x < -0.7) {
+      if (!lastGamepadState.left) {
+        if (isEbbinghausMode()) {
+          ebbGoPrevQuestion();
+        } else {
+          if (prevBtn) prevBtn.click();
+        }
+
+        selectedOptionIndex = 0;
+
+        lastGamepadState.left = true;
+      }
+    } else {
+      lastGamepadState.left = false;
+    }
+
+    // ==========================
+    // → 下一题 / 提交
+    // ==========================
+    if (x > 0.7) {
+      if (!lastGamepadState.right) {
+        if (isEbbinghausMode()) {
+          ebbSubmitOrNextQuestion();
+        } else {
+          if (nextBtn) nextBtn.click();
+        }
+
+        selectedOptionIndex = 0;
+
+        lastGamepadState.right = true;
+      }
+    } else {
+      lastGamepadState.right = false;
+    }
+
+    // ==========================
+    // A键 确定选项（全部模式）
+    // ==========================
+    if (gp.buttons[0].pressed) {
+      if (!lastGamepadState.a) {
+        if (buttons[selectedOptionIndex]) {
+          // 点击当前选项
+          buttons[selectedOptionIndex].click();
+        }
+
+        lastGamepadState.a = true;
+      }
+    } else {
+      lastGamepadState.a = false;
+    }
+
+    // ==========================
+    // R3 确定选项
+    // ==========================
+    if (gp.buttons[11].pressed || gp.buttons[10].pressed) {
+      if (!lastGamepadState.r3) {
+        if (buttons[selectedOptionIndex]) {
+          // 和A键一样
+          buttons[selectedOptionIndex].click();
+        }
+
+        lastGamepadState.r3 = true;
+      }
+    } else {
+      lastGamepadState.r3 = false;
+    }
+  }
+
+  requestAnimationFrame(pollGamepad);
+}
+
+pollGamepad();
