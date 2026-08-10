@@ -118,7 +118,7 @@
         </div>
       </div>
 
-     <!-- 2. 艾宾浩斯复习面板 -->
+    <!-- 2. 艾宾浩斯复习面板 -->
       <div class="ebbinghaus-layout tab-content" id="ebbinghausTab">
         <!-- 顶部：规则提示 -->
         <div class="card ebbinghaus-intro" style="margin-bottom: 16px;">
@@ -129,24 +129,32 @@
         <!-- 🌟 核心布局：左右双栏并排结构 -->
         <div class="analysis-charts-grid" style="grid-template-columns: 1.6fr 1fr; gap: 20px; align-items: start;">
           
-<!-- 👈 左侧：单词复习模式（核心答题区） -->
-<div class="card ebb-action-panel" style="border: 1px solid var(--primary-color, #3498db); min-height: 480px;">
-  <!-- 🌟 修改处：使用 flex 布局将标题与隐藏开关水平并排 -->
-  <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px;">
-    <h3 style="color: var(--primary-color, #3498db); margin: 0;">
-      🔥 智能深度特训：单词复习模式
-    </h3>
-    
-    <!-- ✨ 新增：单词隐藏/显示 Toggle 开关 -->
-    <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-muted); cursor: pointer; user-select: none;">
-      <input type="checkbox" id="ebbHideWordToggle" style="cursor: pointer;">
-      <span>🙈 隐藏单词 (听音模式)</span>
-    </label>
-  </div>
-  
-  <div class="review-status-bar" id="reviewStatusBar" style="margin-top: 15px;">
-    当前无到期应复习题目
-  </div>
+          <!-- 👈 左侧：单词复习模式（核心答题区） -->
+          <div class="card ebb-action-panel" style="border: 1px solid var(--primary-color, #3498db); min-height: 480px;">
+            <!-- 标题、模式切换与隐藏开关控制栏 -->
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; flex-wrap: wrap; gap: 10px;">
+              <h3 style="color: var(--primary-color, #3498db); margin: 0;">
+                🔥 智能深度特训：单词复习模式
+              </h3>
+              
+              <div style="display: flex; align-items: center; gap: 15px;">
+                <!-- 🌟 新增：复习模式切换 (记得/不记得 VS 四选一) -->
+                <div style="display: flex; align-items: center; gap: 5px; font-size: 13px;">
+                  <label style="cursor: pointer;"><input type="radio" name="ebbReviewMode" value="remember" checked> 💡 记得/不记得</label>
+                  <label style="cursor: pointer;"><input type="radio" name="ebbReviewMode" value="choice"> 📝 四选一</label>
+                </div>
+
+                <!-- ✨ 单词隐藏/显示 Toggle 开关 (听音模式) -->
+                <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-muted); cursor: pointer; user-select: none;">
+                  <input type="checkbox" id="ebbHideWordToggle" style="cursor: pointer;">
+                  <span>🙈 隐藏单词 (听音模式)</span>
+                </label>
+              </div>
+            </div>
+            
+            <div class="review-status-bar" id="reviewStatusBar" style="margin-top: 15px;">
+              当前无到期应复习题目
+            </div>
 
             <div
               class="card quiz-zone"
@@ -164,7 +172,78 @@
                 id="ebbWordDisplay"
                 style="font-size: 26px; font-weight: bold; margin: 20px 0; text-align: center;"
               ></div>
+
+<!-- 🌟 模式一：“记得 / 不记得”卡片展示容器 -->
+              <div id="ebbRememberContainer" style="display: none; text-align: center; margin-bottom: 20px;">
+                <!-- 遮罩/查看释义按钮 (改为半透明带边框) -->
+                <button id="ebbShowAnswerBtn" style="
+                  padding: 10px 24px; 
+                  font-size: 15px; 
+                  border-radius: 8px; 
+                  background: rgba(52, 152, 219, 0.1); 
+                  color: #3498db; 
+                  border: 1px solid #3498db; 
+                  cursor: pointer; 
+                  transition: all 0.2s ease;
+                "
+                onmouseover="this.style.background='rgba(52, 152, 219, 0.25)';"
+                onmouseout="this.style.background='rgba(52, 152, 219, 0.1)';"
+                >
+                  👁️ 点击查看中文释义
+                </button>
+                
+                <!-- 答案与释义展开区 -->
+                <div id="ebbAnswerDetail" style="display: none; margin-top: 15px; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 8px; border: 1px dashed rgba(255,255,255,0.2);">
+                  <div id="ebbAnswerText" style="font-size: 20px; font-weight: bold; color: #2ecc71;"></div>
+                </div>
+
+                <!-- “记得”与“不记得”交互按钮操作组 (改为半透明带边框风格) -->
+                <div id="ebbRememberBtnGroup" style="display: flex; gap: 15px; justify-content: center; margin-top: 20px;">
+                  <!-- 记得按钮 (绿色边框) -->
+                  <button id="ebbBtnRemember" style="
+                    flex: 1; 
+                    max-width: 180px; 
+                    padding: 12px; 
+                    font-size: 15px; 
+                    font-weight: 500;
+                    border-radius: 8px; 
+                    cursor: pointer; 
+                    background: rgba(46, 204, 113, 0.12); 
+                    color: #2ecc71; 
+                    border: 1px solid #2ecc71; 
+                    transition: all 0.2s ease;
+                  "
+                  onmouseover="this.style.background='rgba(46, 204, 113, 0.25)';"
+                  onmouseout="this.style.background='rgba(46, 204, 113, 0.12)';"
+                  >
+                    😄 记得 (正确)
+                  </button>
+
+                  <!-- 不记得按钮 (红色边框) -->
+                  <button id="ebbBtnForgot" style="
+                    flex: 1; 
+                    max-width: 180px; 
+                    padding: 12px; 
+                    font-size: 15px; 
+                    font-weight: 500;
+                    border-radius: 8px; 
+                    cursor: pointer; 
+                    background: rgba(231, 76, 60, 0.12); 
+                    color: #e74c3c; 
+                    border: 1px solid #e74c3c; 
+                    transition: all 0.2s ease;
+                  "
+                  onmouseover="this.style.background='rgba(231, 76, 60, 0.25)';"
+                  onmouseout="this.style.background='rgba(231, 76, 60, 0.12)';"
+                  >
+                    😭 不记得 (忘掉)
+                  </button>
+                </div>
+              </div>
+
+              <!-- 🌟 模式二：原来的四选一网格容器 -->
               <div class="options-grid" id="ebbOptionsGrid"></div>
+
               <div id="ebbFeedback" class="feedback-msg"></div>
               <button id="ebbNextBtn" class="success-btn" style="display: none; width: 100%; margin-top: 20px; padding: 12px; font-size: 16px;">
                 下一题 ➔
@@ -225,7 +304,6 @@
           </div>
         </div>
       </div>
-
 <!-- 3. 全局错题排行界面 (ctphTab) -->
 <div class="tab-content" id="ctphTab">
   <div class="card" style="min-height: 500px; padding: 20px;">

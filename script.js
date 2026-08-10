@@ -8,6 +8,7 @@ let currentDbKey = ""; // 当前文件的本地缓存唯一识别 Key
 let isAutoNextEnabled = true;
 let isAutoSpeakEnabled = true; // ✨ 新增：下一题自动朗读单词开关状态（默认开启）
 let isEbbWordHidden = false; // ✨ 标识艾宾浩斯复习模式下是否隐藏单词
+let ebbReviewMode = "remember"; // ✨ 艾宾浩斯复习模式："remember" (记得/不记得) 或 "choice" (四选一)
 
 // 艾宾浩斯复习时间间隔定义 (单位: 毫秒)
 const EBB_INTERVALS = [
@@ -911,11 +912,60 @@ function initReviewEngine(expiredItems) {
   loadReviewQuestion();
 }
 
+// ==========================================
+// 艾宾浩斯复习逻辑 (支持 记得/不记得 & 四选一 两种模式)
+// ==========================================
+
+// 初始化模式切换Radio监听器
+document.addEventListener("DOMContentLoaded", () => {
+  const modeRadios = document.querySelectorAll('input[name="ebbReviewMode"]');
+  modeRadios.forEach((radio) => {
+    radio.addEventListener("change", (e) => {
+      ebbReviewMode = e.target.value;
+      loadReviewQuestion(); // 切换模式后重新载入当前题目
+    });
+  });
+
+  // 绑定“记得/不记得”相关按钮事件
+  const showAnsBtn = document.getElementById("ebbShowAnswerBtn");
+  if (showAnsBtn) {
+    showAnsBtn.addEventListener("click", () => {
+      const detail = document.getElementById("ebbAnswerDetail");
+      const ebbWordDisplay = document.getElementById("ebbWordDisplay");
+      
+      if (detail) detail.style.display = "block";
+      showAnsBtn.style.display = "none";
+
+      // 点击显示答案时，如处于隐藏单词(听音)模式，取消遮罩揭晓单词
+      if (ebbWordDisplay && currentReviewIndexList[currentReviewPointer] !== undefined) {
+        const item = vocabList[currentReviewIndexList[currentReviewPointer]];
+        if (item) {
+          ebbWordDisplay.querySelector("span").innerText = `【复习第 ${item.id} 题】 ${item.word}`;
+        }
+      }
+    });
+  }
+
+  const btnRemember = document.getElementById("ebbBtnRemember");
+  if (btnRemember) {
+    btnRemember.addEventListener("click", () => handleRememberResult(true));
+  }
+
+  const btnForgot = document.getElementById("ebbBtnForgot");
+  if (btnForgot) {
+    btnForgot.addEventListener("click", () => handleRememberResult(false));
+  }
+});
+
 function loadReviewQuestion() {
   const grid = document.getElementById("ebbOptionsGrid");
+  const rememberContainer = document.getElementById("ebbRememberContainer");
+  const showAnsBtn = document.getElementById("ebbShowAnswerBtn");
+  const answerDetail = document.getElementById("ebbAnswerDetail");
+  const answerText = document.getElementById("ebbAnswerText");
   const feed = document.getElementById("ebbFeedback");
   const ebbNextBtn = document.getElementById("ebbNextBtn");
-  const ebbMnemonicContainer = document.getElementById("ebbMnemonicContainer"); // ✨ 获取助记容器
+  const ebbMnemonicContainer = document.getElementById("ebbMnemonicContainer");
 
   if (currentReviewPointer >= currentReviewIndexList.length) {
     alert("✨ 恭喜！当前批次的到期复习题目已全部剿灭！");
@@ -931,7 +981,7 @@ function loadReviewQuestion() {
   if (feed) feed.innerText = "";
   if (ebbNextBtn) ebbNextBtn.style.display = "none";
 
-  // ✨【新增】加载题目时，自动解析并在下一题按钮下方渲染助记内容
+  // 解析并渲染助记内容
   if (
     ebbMnemonicContainer &&
     item.word &&
@@ -940,9 +990,9 @@ function loadReviewQuestion() {
     ebbMnemonicContainer.innerHTML = analyzeWordMnemonic(item.word);
   }
 
+  // 渲染题目头部（结合“隐藏单词/听音模式”）
   const ebbWordDisplay = document.getElementById("ebbWordDisplay");
   if (ebbWordDisplay) {
-    // ✨ 根据开关状态判断是显示单词本身还是显示占位遮罩
     const displayWordText = isEbbWordHidden ? "❓ ❓ ❓" : item.word;
 
     ebbWordDisplay.innerHTML = `
@@ -952,75 +1002,161 @@ function loadReviewQuestion() {
       </button>
     `;
 
-    // 自动朗读单词发音（隐藏单词模式下依靠声音听辨选择）
     if (typeof isAutoSpeakEnabled === "undefined" || isAutoSpeakEnabled) {
       speakWord(item.word);
     }
   }
 
-  if (grid) {
-    grid.innerHTML = "";
-    item.options.forEach((option) => {
-      const btn = document.createElement("button");
-      btn.className = "opt-btn";
-      btn.innerText = option;
-      btn.onclick = () => {
-        const buttons = grid.querySelectorAll(".opt-btn");
-        buttons.forEach((b) => (b.disabled = true));
+  // ---------------- 根据所选模式切换界面样式 ----------------
+  if (ebbReviewMode === "remember") {
+    // 💡 记得 / 不记得 模式
+    if (grid) grid.style.display = "none";
+    if (rememberContainer) rememberContainer.style.display = "block";
+    if (showAnsBtn) showAnsBtn.style.display = "inline-block";
+    if (answerDetail) answerDetail.style.display = "none";
+    if (answerText) answerText.innerText = item.answer;
 
-        // ✨ 答题后取消遮罩，揭晓原单词
-        if (ebbWordDisplay) {
-          ebbWordDisplay.querySelector("span").innerText =
-            `【复习第 ${item.id} 题】 ${item.word}`;
-        }
+  } else {
+    // 📝 保留原本的“四选一”模式
+    if (rememberContainer) rememberContainer.style.display = "none";
+    if (grid) {
+      grid.style.display = "grid";
+      grid.innerHTML = "";
+      
+      item.options.forEach((option) => {
+        const btn = document.createElement("button");
+        btn.className = "opt-btn";
+        btn.innerText = option;
+        btn.onclick = () => {
+          const buttons = grid.querySelectorAll(".opt-btn");
+          buttons.forEach((b) => (b.disabled = true));
 
-        if (option === item.answer) {
-          // ---------------- 【答对逻辑】 ----------------
-          btn.classList.add("correct");
-          if (feed) {
-            feed.innerText = "🎉 复习成功！记忆评级已升级提升。";
-            feed.style.color = "var(--success-text)";
+          // 答题后揭晓原单词
+          if (ebbWordDisplay) {
+            ebbWordDisplay.querySelector("span").innerText = `【复习第 ${item.id} 题】 ${item.word}`;
           }
-          if (item.stage < 8) item.stage++;
-          item.nextReviewTime =
-            Date.now() +
-            (EBB_INTERVALS[item.stage - 1] ||
-              EBB_INTERVALS[EBB_INTERVALS.length - 1]);
-          item.userStatus = "correct";
 
-          saveProgressToLocal();
-          updateEbbinghausSummary(); // 即时更新顶部概览
+          if (option === item.answer) {
+            btn.classList.add("correct");
+            if (feed) {
+              feed.innerText = "🎉 复习成功！记忆评级已升级提升。";
+              feed.style.color = "var(--success-text)";
+            }
+            if (item.stage < 8) item.stage++;
+            item.nextReviewTime =
+              Date.now() +
+              (EBB_INTERVALS[item.stage - 1] ||
+                EBB_INTERVALS[EBB_INTERVALS.length - 1]);
+            item.userStatus = "correct";
 
-          setTimeout(() => {
-            currentReviewPointer++;
-            renderEbbinghausView(); // 自动跳转前刷新侧边栏
-            loadReviewQuestion();
-          }, 350); // 留出 350ms 视觉反馈时间
-        } else {
-          // ---------------- 【答错逻辑】 ----------------
-          btn.classList.add("wrong");
-          if (feed) {
-            feed.innerText = `❌ 复习再次犯错！惩罚降回 L0，5小时后重新排队。正确答案是：${item.answer}`;
-            feed.style.color = "var(--danger-text)";
+            saveProgressToLocal();
+            updateEbbinghausSummary();
+
+            setTimeout(() => {
+              currentReviewPointer++;
+              renderEbbinghausView();
+              loadReviewQuestion();
+            }, 350);
+          } else {
+            btn.classList.add("wrong");
+            if (feed) {
+              feed.innerText = `❌ 复习再次犯错！惩罚降回 L0，5小时后重新排队。正确答案是：${item.answer}`;
+              feed.style.color = "var(--danger-text)";
+            }
+            item.stage = 0;
+            item.errorCount++;
+            item.nextReviewTime = Date.now() + EBB_INTERVALS[0];
+            item.userStatus = "wrong";
+
+            buttons.forEach((b) => {
+              if (b.innerText === item.answer) b.classList.add("correct");
+            });
+
+            if (ebbNextBtn) ebbNextBtn.style.display = "block";
+
+            saveProgressToLocal();
+            updateEbbinghausSummary();
           }
-          item.stage = 0;
-          item.errorCount++;
-          item.nextReviewTime = Date.now() + EBB_INTERVALS[0];
-          item.userStatus = "wrong";
+        };
+        grid.appendChild(btn);
+      });
+    }
+  }
+}
 
-          buttons.forEach((b) => {
-            if (b.innerText === item.answer) b.classList.add("correct");
-          });
+// 核心逻辑：处理“记得”/“不记得”点击反馈
+function handleRememberResult(isRemembered) {
+  if (currentReviewPointer >= currentReviewIndexList.length) return;
 
-          // 显示“下一题”按钮，停留在当前页等待用户确认
-          if (ebbNextBtn) ebbNextBtn.style.display = "block";
+  const mainIdx = currentReviewIndexList[currentReviewPointer];
+  const item = vocabList[mainIdx];
+  if (!item) return;
 
-          saveProgressToLocal();
-          updateEbbinghausSummary();
-        }
+  const ebbWordDisplay = document.getElementById("ebbWordDisplay");
+  const feed = document.getElementById("ebbFeedback");
+  const ebbNextBtn = document.getElementById("ebbNextBtn");
+
+  // 1. 揭晓单词（如果之前开启了隐藏单词）
+  if (ebbWordDisplay) {
+    ebbWordDisplay.querySelector("span").innerText = `【复习第 ${item.id} 题】 ${item.word}`;
+  }
+
+  if (isRemembered) {
+    // ================= 😄 点击“记得” =================
+    if (feed) {
+      feed.innerText = "🎉 复习成功！已记下该单词。";
+      feed.style.color = "var(--success-text)";
+    }
+    // 提升记忆阶段
+    if (item.stage < 8) item.stage++;
+    item.nextReviewTime =
+      Date.now() +
+      (EBB_INTERVALS[item.stage - 1] || EBB_INTERVALS[EBB_INTERVALS.length - 1]);
+    item.userStatus = "correct";
+
+    saveProgressToLocal();
+    updateEbbinghausSummary();
+
+    // 自动跳转下一题
+    setTimeout(() => {
+      currentReviewPointer++;
+      renderEbbinghausView();
+      loadReviewQuestion();
+    }, 300);
+
+  } else {
+    // ================= 😭 点击“不记得”（算作错题） =================
+    if (feed) {
+      feed.innerText = `❌ 记不清/未记牢！已重新加入本轮复习队列，正确答案是：${item.answer}`;
+      feed.style.color = "var(--danger-text)";
+    }
+    
+    // 1. 惩罚降级 & 增加错题数
+    item.stage = 0;
+    item.errorCount = (item.errorCount || 0) + 1;
+    item.nextReviewTime = Date.now() + EBB_INTERVALS[0]; // 5小时后
+    item.userStatus = "wrong";
+
+    // 2. 🔥 核心修复：将该错题重新追加到当前复习队列末尾，确保本轮必须再次巩固
+    currentReviewIndexList.push(mainIdx);
+
+    // 3. 显示答案详情
+    const detail = document.getElementById("ebbAnswerDetail");
+    if (detail) detail.style.display = "block";
+
+    // 4. 显示“下一题”按钮，让用户看清答案后再手动点击或继续
+    if (ebbNextBtn) {
+      ebbNextBtn.style.display = "block";
+      // 点击下一题时指针后移并载入下一题
+      ebbNextBtn.onclick = () => {
+        currentReviewPointer++;
+        renderEbbinghausView();
+        loadReviewQuestion();
       };
-      grid.appendChild(btn);
-    });
+    }
+
+    saveProgressToLocal();
+    updateEbbinghausSummary();
   }
 }
 
@@ -2075,263 +2211,334 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
+
+
 // ==========================================
-// 🎮 Xbox 手柄刷题控制（支持全部模式）
-// 普通刷题 + 艾宾浩斯复习
+// 🎮 Xbox / 通用手柄刷题控制（摇杆定制增强版）
+// 支持：摇杆防抖 + 艾宾浩斯“认识/不认识/下一题”手势控制
 // ==========================================
 
 let gamepadIndex = null;
 let selectedOptionIndex = 0;
 let lastGamepadState = {};
 
-// 摇杆连发控制
-let stickTimer = {
-  up: null,
-  down: null,
-  left: null,
-  right: null,
-};
+// 摇杆 / 十字键连发与防抖定时器
+let stickTimer = { up: null, down: null, left: null, right: null };
+let stickActive = { up: false, down: false, left: false, right: false };
 
-let stickActive = {
-  up: false,
-  down: false,
-  left: false,
-  right: false,
-};
-
-// 手柄连接
+// 监听手柄连接/断开
 window.addEventListener("gamepadconnected", (e) => {
-  console.log("🎮 Xbox手柄已连接:", e.gamepad.id);
-
+  console.log("🎮 手柄已连接:", e.gamepad.id);
   gamepadIndex = e.gamepad.index;
 });
 
-// 手柄断开
 window.addEventListener("gamepaddisconnected", () => {
-  console.log("🎮 Xbox手柄断开");
-
+  console.log("🎮 手柄已断开");
   gamepadIndex = null;
 });
 
-// 获取当前页面选项按钮
-function getCurrentOptions() {
+// 判断当前是否处于艾宾浩斯 Tab 界面
+function isEbbinghausMode() {
   const activeTab = document.querySelector(".nav-tabs .tab-btn.active");
+  return activeTab && activeTab.getAttribute("data-tab") === "ebbinghausTab";
+}
 
-  // 艾宾浩斯
-  if (activeTab && activeTab.getAttribute("data-tab") === "ebbinghausTab") {
-    const ebbGrid = document.getElementById("ebbOptionsGrid");
+// 判断当前艾宾浩斯是否处于“记得/不记得”模式
+function isEbbRememberMode() {
+  return isEbbinghausMode() && typeof ebbReviewMode !== "undefined" && ebbReviewMode === "remember";
+}
 
-    if (ebbGrid) return ebbGrid.querySelectorAll(".opt-btn");
+// 获取当前页面可操作的选项按钮集合
+function getCurrentOptions() {
+  if (isEbbinghausMode()) {
+    if (typeof ebbReviewMode !== "undefined" && ebbReviewMode === "choice") {
+      const ebbGrid = document.getElementById("ebbOptionsGrid");
+      if (ebbGrid && ebbGrid.style.display !== "none") {
+        return ebbGrid.querySelectorAll(".opt-btn");
+      }
+    }
+    return [];
   }
 
-  // 普通刷题
+  // 普通刷题模式下的选项按钮
   const grid = document.getElementById("optionsGrid");
-
   if (grid) return grid.querySelectorAll(".opt-btn");
-
   return [];
 }
 
-// 🎮 手柄选中效果
+// 🎮 手柄高亮选中效果
 function highlightGamepadOption(buttons) {
+  if (!buttons || buttons.length === 0) return;
+
   buttons.forEach((btn) => {
     btn.style.outline = "";
     btn.style.transform = "";
     btn.style.boxShadow = "";
-    btn.style.background = "";
   });
 
+  if (selectedOptionIndex < 0) selectedOptionIndex = 0;
+  if (selectedOptionIndex >= buttons.length) selectedOptionIndex = buttons.length - 1;
+
   const btn = buttons[selectedOptionIndex];
-
   if (btn) {
-    // 蓝紫色科技高亮
     btn.style.outline = "2px solid #6ba5ff";
-
-    btn.style.boxShadow =
-      "0 0 12px rgba(107,165,255,0.8), inset 0 0 8px rgba(107,165,255,0.25)";
-
+    btn.style.boxShadow = "0 0 12px rgba(107,165,255,0.8)";
     btn.style.transform = "translateX(6px) scale(1.02)";
-
     btn.style.transition = "all 0.15s ease";
   }
 }
-// ============================
-// 摇杆连续移动
-// ============================
 
+// 摇杆/十字键 上下光标移动
 function moveOption(direction, buttons) {
+  if (!buttons || buttons.length === 0) return;
+
   if (direction === "up") {
     selectedOptionIndex--;
-
     if (selectedOptionIndex < 0) selectedOptionIndex = buttons.length - 1;
   }
-
   if (direction === "down") {
     selectedOptionIndex++;
-
     if (selectedOptionIndex >= buttons.length) selectedOptionIndex = 0;
   }
 
   highlightGamepadOption(buttons);
 }
 
-// 判断是否艾宾浩斯
-function isEbbinghausMode() {
-  const activeTab = document.querySelector(".nav-tabs .tab-btn.active");
-
-  return activeTab && activeTab.getAttribute("data-tab") === "ebbinghausTab";
-}
-
-// 手柄主循环
+// 🎮 主轮询循环
 function pollGamepad() {
   if (gamepadIndex === null) {
     requestAnimationFrame(pollGamepad);
-
     return;
   }
 
   const gp = navigator.getGamepads()[gamepadIndex];
-
   if (!gp) {
     requestAnimationFrame(pollGamepad);
-
     return;
   }
 
   const buttons = getCurrentOptions();
+  const inEbb = isEbbinghausMode();
+  const inRememberMode = isEbbRememberMode();
 
-  if (buttons.length) {
-    const x = gp.axes[0];
+  // ----------------------------------------------------
+  // 读取轴向输入 (Axes) & 按钮 (Buttons)
+  // Standard Gamepad Mapping:
+  // axes[0]: 左摇杆 X轴 (-1 左, +1 右)
+  // axes[1]: 左摇杆 Y轴 (-1 上, +1 下)
+  // axes[2] 或 axes[3]: 右摇杆 X轴 (-1 左, +1 右)
+  // ----------------------------------------------------
+  const lx = gp.axes[0] || 0;
+  const ly = gp.axes[1] || 0;
+  
+  // 右摇杆兼容性处理（部分浏览器/手柄为 axes[2]，部分为 axes[3]）
+  const rx = Math.abs(gp.axes[2] || 0) > Math.abs(gp.axes[3] || 0) ? gp.axes[2] : gp.axes[3] || 0;
 
-    const y = gp.axes[1];
+  const dpadUp = gp.buttons[12]?.pressed;
+  const dpadDown = gp.buttons[13]?.pressed;
+  const dpadLeft = gp.buttons[14]?.pressed;
+  const dpadRight = gp.buttons[15]?.pressed;
 
-    // ==========================
-    // ↑ 上一个选项
-    // ==========================
-    // ==========================
-    // 摇杆 ↑ 连续移动
-    // ==========================
-
-    if (y < -0.7) {
-      if (!stickActive.up) {
-        moveOption("up", buttons);
-
-        stickActive.up = true;
-
-        // 0.35秒后开始连发
-        stickTimer.up = setTimeout(() => {
-          stickTimer.up = setInterval(() => {
-            moveOption("up", buttons);
-          }, 120);
-        }, 350);
-      }
-    } else {
-      stickActive.up = false;
-
-      clearTimeout(stickTimer.up);
-
-      clearInterval(stickTimer.up);
+  // 1. ==========================================
+  //    ↑ 上移（左摇杆向上 / D-Pad 上）
+  //    ==========================================
+  const isUp = dpadUp || ly < -0.6;
+  if (isUp) {
+    if (!stickActive.up) {
+      if (buttons.length) moveOption("up", buttons);
+      stickActive.up = true;
+      stickTimer.up = setTimeout(() => {
+        stickTimer.up = setInterval(() => {
+          if (buttons.length) moveOption("up", buttons);
+        }, 120);
+      }, 350);
     }
+  } else {
+    stickActive.up = false;
+    clearTimeout(stickTimer.up);
+    clearInterval(stickTimer.up);
+  }
 
-    // ==========================
-    // ↓ 下一个选项
-    // ==========================
-    // ==========================
-    // 摇杆 ↓ 连续移动
-    // ==========================
-
-    if (y > 0.7) {
-      if (!stickActive.down) {
-        moveOption("down", buttons);
-
-        stickActive.down = true;
-
-        stickTimer.down = setTimeout(() => {
-          stickTimer.down = setInterval(() => {
-            moveOption("down", buttons);
-          }, 120);
-        }, 350);
-      }
-    } else {
-      stickActive.down = false;
-
-      clearTimeout(stickTimer.down);
-
-      clearInterval(stickTimer.down);
+  // 2. ==========================================
+  //    ↓ 下移（左摇杆向下 / D-Pad 下）
+  //    ==========================================
+  const isDown = dpadDown || ly > 0.6;
+  if (isDown) {
+    if (!stickActive.down) {
+      if (buttons.length) moveOption("down", buttons);
+      stickActive.down = true;
+      stickTimer.down = setTimeout(() => {
+        stickTimer.down = setInterval(() => {
+          if (buttons.length) moveOption("down", buttons);
+        }, 120);
+      }, 350);
     }
+  } else {
+    stickActive.down = false;
+    clearTimeout(stickTimer.down);
+    clearInterval(stickTimer.down);
+  }
 
-    // ==========================
-    // ← 上一题
-    // ==========================
-    if (x < -0.7) {
-      if (!lastGamepadState.left) {
-        if (isEbbinghausMode()) {
-          ebbGoPrevQuestion();
-        } else {
-          if (prevBtn) prevBtn.click();
+  // 3. ==========================================
+  //    👈 左摇杆向左 (lx < -0.6) 或 十字键左
+  //    功能：记得模式下 -> 【记得 / 认识】
+  //          普通/选择模式 -> 上一题
+  //    ==========================================
+  const isLeft = dpadLeft || lx < -0.6;
+  if (isLeft) {
+    if (!lastGamepadState.left) {
+      if (inRememberMode) {
+        // 艾宾浩斯记得模式：触发“记得/认识”
+        if (typeof handleRememberResult === "function") {
+          handleRememberResult(true);
         }
-
-        selectedOptionIndex = 0;
-
-        lastGamepadState.left = true;
+      } else if (inEbb) {
+        if (typeof ebbGoPrevQuestion === "function") ebbGoPrevQuestion();
+      } else {
+        if (typeof prevBtn !== "undefined" && prevBtn) prevBtn.click();
       }
-    } else {
-      lastGamepadState.left = false;
+      selectedOptionIndex = 0;
+      lastGamepadState.left = true;
     }
+  } else {
+    lastGamepadState.left = false;
+  }
 
-    // ==========================
-    // → 下一题 / 提交
-    // ==========================
-    if (x > 0.7) {
-      if (!lastGamepadState.right) {
-        if (isEbbinghausMode()) {
+  // 4. ==========================================
+  //    👉 左摇杆向右 (lx > 0.6) 或 十字键右
+  //    功能：任何模式下 -> 【下一题 / 提交】
+  //    ==========================================
+  const isRight = dpadRight || lx > 0.6;
+  if (isRight) {
+    if (!lastGamepadState.right) {
+      const ebbNextBtn = document.getElementById("ebbNextBtn");
+
+      if (inEbb && ebbNextBtn && ebbNextBtn.style.display !== "none") {
+        // 优先点击卡住/提示时的“下一题”按钮
+        ebbNextBtn.click();
+      } else if (inEbb) {
+        if (typeof ebbSubmitOrNextQuestion === "function") {
           ebbSubmitOrNextQuestion();
-        } else {
-          if (nextBtn) nextBtn.click();
         }
-
-        selectedOptionIndex = 0;
-
-        lastGamepadState.right = true;
+      } else {
+        if (typeof nextBtn !== "undefined" && nextBtn) nextBtn.click();
       }
-    } else {
-      lastGamepadState.right = false;
+      selectedOptionIndex = 0;
+      lastGamepadState.right = true;
     }
+  } else {
+    lastGamepadState.right = false;
+  }
 
-    // ==========================
-    // A键 确定选项（全部模式）
-    // ==========================
-    if (gp.buttons[0].pressed) {
-      if (!lastGamepadState.a) {
-        if (buttons[selectedOptionIndex]) {
-          // 点击当前选项
-          buttons[selectedOptionIndex].click();
+  // 5. ==========================================
+  //    👉👉 右摇杆向右 (rx > 0.6)
+  //    功能：记得模式下 -> 【不记得 / 不认识】
+  //    ==========================================
+  const isRightStickRight = rx > 0.6;
+  if (isRightStickRight) {
+    if (!lastGamepadState.rxRight) {
+      if (inRememberMode) {
+        // 艾宾浩斯记得模式：触发“不记得/不认识”
+        if (typeof handleRememberResult === "function") {
+          handleRememberResult(false);
         }
-
-        lastGamepadState.a = true;
       }
-    } else {
-      lastGamepadState.a = false;
+      lastGamepadState.rxRight = true;
     }
+  } else {
+    lastGamepadState.rxRight = false;
+  }
 
-    // ==========================
-    // R3 确定选项
-    // ==========================
-    if (gp.buttons[11].pressed || gp.buttons[10].pressed) {
-      if (!lastGamepadState.r3) {
-        if (buttons[selectedOptionIndex]) {
-          // 和A键一样
-          buttons[selectedOptionIndex].click();
+  // 6. ==========================================
+  //    🔊 LB 键 (buttons[4]) -> 重新朗读当前单词 (TTS)
+  //    ==========================================
+  if (gp.buttons[4]?.pressed) {
+    if (!lastGamepadState.lb) {
+      if (inEbb) {
+        if (typeof currentReviewIndexList !== "undefined" && currentReviewPointer < currentReviewIndexList.length) {
+          const item = vocabList[currentReviewIndexList[currentReviewPointer]];
+          if (item && typeof speakWord === "function") speakWord(item.word);
         }
-
-        lastGamepadState.r3 = true;
+      } else {
+        if (typeof currentIndex !== "undefined" && vocabList[currentIndex]) {
+          if (typeof speakWord === "function") speakWord(vocabList[currentIndex].word);
+        }
       }
-    } else {
-      lastGamepadState.r3 = false;
+      lastGamepadState.lb = true;
     }
+  } else {
+    lastGamepadState.lb = false;
+  }
+
+  // 7. ==========================================
+  //    👁️ RB 键 (buttons[5]) -> 揭晓/显示答案
+  //    ==========================================
+  if (gp.buttons[5]?.pressed) {
+    if (!lastGamepadState.rb) {
+      const showAnsBtn = document.getElementById("ebbShowAnswerBtn");
+      if (inEbb && showAnsBtn && showAnsBtn.style.display !== "none") {
+        showAnsBtn.click();
+      }
+      lastGamepadState.rb = true;
+    }
+  } else {
+    lastGamepadState.rb = false;
+  }
+
+  // 8. ==========================================
+  //    🔘 A 键 (buttons[0]) / R3 键 (buttons[10/11]) -> 确认/选择
+  //    ==========================================
+  const isAPressed = gp.buttons[0]?.pressed;
+  const isR3Pressed = gp.buttons[11]?.pressed || gp.buttons[10]?.pressed;
+
+  if (isAPressed || isR3Pressed) {
+    if (!lastGamepadState.confirm) {
+      const ebbNextBtn = document.getElementById("ebbNextBtn");
+
+      if (inEbb && ebbNextBtn && ebbNextBtn.style.display !== "none") {
+        ebbNextBtn.click();
+      } else if (buttons.length && buttons[selectedOptionIndex]) {
+        buttons[selectedOptionIndex].click();
+      }
+
+      lastGamepadState.confirm = true;
+    }
+  } else {
+    lastGamepadState.confirm = false;
   }
 
   requestAnimationFrame(pollGamepad);
 }
 
+// 启动手柄轮询
 pollGamepad();
+
+
+// 键盘快捷键监听：1 键 -> 记得，2 键 -> 不记得，空格/Enter -> 下一题
+document.addEventListener("keydown", (e) => {
+  const ebbTab = document.getElementById("ebbinghausTab");
+  if (!ebbTab || ebbTab.style.display === "none") return;
+  if (typeof ebbReviewMode !== "undefined" && ebbReviewMode !== "remember") return;
+
+  // 避免在输入框打字时触发
+  if (["INPUT", "TEXTAREA"].includes(document.activeElement.tagName)) return;
+
+  const ebbNextBtn = document.getElementById("ebbNextBtn");
+
+  // 如果当前处于答错/不记得状态且“下一题”按钮已显示，按空格/Enter/1/2 均可快速进入下一题
+  if (ebbNextBtn && ebbNextBtn.style.display !== "none") {
+    if (["1", "2", " ", "Enter"].includes(e.key)) {
+      e.preventDefault();
+      ebbNextBtn.click();
+      return;
+    }
+  }
+
+  if (e.key === "1") {
+    e.preventDefault();
+    handleRememberResult(true); // 记得
+  } else if (e.key === "2") {
+    e.preventDefault();
+    handleRememberResult(false); // 不记得
+  }
+});
