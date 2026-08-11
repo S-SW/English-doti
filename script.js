@@ -2430,17 +2430,23 @@ function pollGamepad() {
     lastGamepadState.right = false;
   }
 
-  // 5. ==========================================
+// 5. ==========================================
   //    👉👉 右摇杆向右 (rx > 0.6)
-  //    功能：记得模式下 -> 【不记得 / 不认识】
+  //    功能：记得模式下 -> 第一次向右显示中文答案(标记不记得)，再次向右跳转下一题
   //    ==========================================
   const isRightStickRight = rx > 0.6;
   if (isRightStickRight) {
     if (!lastGamepadState.rxRight) {
       if (inRememberMode) {
-        // 艾宾浩斯记得模式：触发“不记得/不认识”
-        if (typeof handleRememberResult === "function") {
-          handleRememberResult(false);
+        const ebbNextBtn = document.getElementById("ebbNextBtn");
+        // 判定：如果“下一题”按钮已经显示（说明中文答案已弹出/已完成作答），再次向右直接切题
+        if (ebbNextBtn && ebbNextBtn.style.display !== "none") {
+          ebbNextBtn.click();
+        } else {
+          // 第一次向右：触发“不记得/不认识”，弹出中文答案及“下一题”按钮
+          if (typeof handleRememberResult === "function") {
+            handleRememberResult(false);
+          }
         }
       }
       lastGamepadState.rxRight = true;
