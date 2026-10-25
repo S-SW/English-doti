@@ -2548,3 +2548,204 @@ document.addEventListener("keydown", (e) => {
     handleRememberResult(false); // 不记得
   }
 });
+
+// ==========================================
+// 📱 iPad 模式：全屏大字触摸刷题（独立队列，复用同一本 vocabList）
+// ==========================================
+let ipadQueue = [];      // 待复习题在 vocabList 中的下标
+let ipadPointer = 0;      // 当前指向
+let ipadLocked = false;   // 答题动画期间锁，防止连点
+
+function ipadBuildQueue() {
+  const now = Date.now();
+  const idxSet = new Set();
+  vocabList.forEach((item, idx) => {
+    if (item.nextReviewTime > 0 && now >= item.nextReviewTime) {
+      idxSet.add(idx);
+    }
+  });
+  return Array.from(idxSet);
+}
+
+function initIpadMode() {
+  const empty = document.getElementById("ipadEmpty");
+  const stage = document.getElementById("ipadStage");
+  if (!empty || !stage) return;
+
+  if (!vocabList || vocabList.length === 0) {
+    document.getElementById("ipadEmptyText").innerText =
+      "📭 还没有题库。请先回到「今日刷题」页上传 .txt 题库文件。";
+    empty.style.display = "flex";
+    stage.style.display = "none";
+    return;
+  }
+
+  ipadQueue = ipadBuildQueue();
+  ipadPointer = 0;
+
+  if (ipadQueue.length === 0) {
+    document.getElementById("ipadEmptyText").innerText =
+      "🎉 太棒了！当前没有到期需要复习的单词，去刷点新题吧。";
+    empty.style.display = "flex";
+    stage.style.display = "none";
+    return;
+  }
+
+  empty.style.display = "none";
+  stage.style.display = "flex";
+  ipadLoadQuestion();
+}
+
+function ipadGetCurrentItem() {
+  if (ipadPointer >= ipadQueue.length) return null;
+  return vocabList[ipadQueue[ipadPointer]];
+}
+
+function ipadLoadQuestion() {
+  const item = ipadGetCurrentItem();
+  if (!item) {
+    // 全部完成
+    const empty = document.getElementById("ipadEmpty");
+    const stage = document.getElementById("ipadStage");
+    document.getElementById("ipadEmptyText").innerText =
+      "✅ 本轮复习完成！可切到其他标签再回来刷新队列。";
+    if (empty) empty.style.display = "flex";
+    if (stage) stage.style.display = "none";
+    return;
+  }
+
+  ipadLocked = false;
+
+  const wordEl = document.getElementById("ipadWord");
+  const ansBox = document.getElementById("ipadAnswerBox");
+  const ansText = document.getElementById("ipadAnswer");
+  const revealBtn = document.getElementById("ipadRevealBtn");
+  const judgeRow = document.getElementById("ipadJudgeRow");
+  const counter = document.getElementById("ipadCounter");
+  const mnemonic = document.getElementById("ipadMnemonic");
+
+  if (counter) counter.innerText = `${ipadPointer + 1} / ${ipadQueue.length}`;
+  // 去掉音标 [...] 和尾部词性标记（n./v./vt./vi./adj./adv./prep./conj./pron./num./art./int./aux. 等）
+  if (wordEl) {
+    let w = String(item.word).replace(/\[[^\]]*\]/g, "");
+    w = w.replace(/\s+[a-z]{1,6}\.$/i, "");
+    wordEl.innerText = w.replace(/\s+/g, " ").trim();
+  }
+  if (ansBox) ansBox.style.display = "none";
+  if (ansText) ansText.innerText = item.answer;
+  if (revealBtn) revealBtn.style.display = "inline-block";
+  if (judgeRow) judgeRow.style.display = "none";
+
+  // 助记
+  if (mnemonic) {
+    mnemonic.innerHTML =
+      item.word && typeof analyzeWordMnemonic === "function"
+        ? analyzeWordMnemonic(item.word)
+        : "";
+  }
+
+  // 自动朗读
+  if (typeof isAutoSpeakEnabled === "undefined" || isAutoSpeakEnabled) {
+    setTimeout(() => speakWord(item.word), 150);
+  }
+}
+
+function ipadRevealAnswer() {
+  const ansBox = document.getElementById("ipadAnswerBox");
+  const revealBtn = document.getElementById("ipadRevealBtn");
+  const judgeRow = document.getElementById("ipadJudgeRow");
+  if (ansBox) ansBox.style.display = "block";
+  if (revealBtn) revealBtn.style.display = "none";
+  if (judgeRow) judgeRow.style.display = "flex";
+}
+
+function ipadAdvance() {
+  ipadPointer++;
+  ipadLoadQuestion();
+}
+
+function ipadRemember() {
+  if (ipadLocked) return;
+  const item = ipadGetCurrentItem();
+  if (!item) return;
+  ipadLocked = true;
+
+  const btn = document.getElementById("ipadRememberBtn");
+  if (btn) btn.classList.add("flash-remember");
+
+  if (item.stage < 8) item.stage++;
+  item.nextReviewTime =
+    Date.now() +
+    (EBB_INTERVALS[item.stage - 1] || EBB_INTERVALS[EBB_INTERVALS.length - 1]);
+  item.userStatus = "correct";
+
+  saveProgressToLocal();
+  if (typeof updateEbbinghausSummary === "function") updateEbbinghausSummary();
+
+  setTimeout(() => {
+    if (btn) btn.classList.remove("flash-remember");
+    ipadAdvance();
+  }, 380);
+}
+
+function ipadForgot() {
+  if (ipadLocked) return;
+  const realIdx = ipadQueue[ipadPointer];
+  const item = vocabList[realIdx];
+  if (!item) return;
+  ipadLocked = true;
+
+  const btn = document.getElementById("ipadForgotBtn");
+  if (btn) btn.classList.add("flash-forgot");
+
+  item.stage = 0;
+  item.errorCount = (item.errorCount || 0) + 1;
+  item.nextReviewTime = Date.now() + EBB_INTERVALS[0];
+  item.userStatus = "wrong";
+
+  // 错题重新塞回队尾，本轮再考一次
+  ipadQueue.push(realIdx);
+
+  saveProgressToLocal();
+  if (typeof updateEbbinghausSummary === "function") updateEbbinghausSummary();
+
+  setTimeout(() => {
+    if (btn) btn.classList.remove("flash-forgot");
+    ipadAdvance();
+  }, 900);
+}
+
+// 绑定 iPad 模式按钮事件（只绑一次）
+document.addEventListener("DOMContentLoaded", () => {
+  const revealBtn = document.getElementById("ipadRevealBtn");
+  const rememberBtn = document.getElementById("ipadRememberBtn");
+  const forgotBtn = document.getElementById("ipadForgotBtn");
+  const replayBtn = document.getElementById("ipadReplayBtn");
+  const wordArea = document.getElementById("ipadWordArea");
+
+  if (revealBtn) revealBtn.addEventListener("click", ipadRevealAnswer);
+  if (rememberBtn) rememberBtn.addEventListener("click", ipadRemember);
+  if (forgotBtn) forgotBtn.addEventListener("click", ipadForgot);
+
+  if (replayBtn) {
+    replayBtn.addEventListener("click", () => {
+      const item = ipadGetCurrentItem();
+      if (item) speakWord(item.word);
+    });
+  }
+  // 点单词区也重播发音
+  if (wordArea) {
+    wordArea.addEventListener("click", () => {
+      const item = ipadGetCurrentItem();
+      if (item) speakWord(item.word);
+    });
+  }
+
+  // 切到 iPad tab 时启动
+  const ipadTabBtn = document.querySelector('.tab-btn[data-tab="ipadTab"]');
+  if (ipadTabBtn) {
+    ipadTabBtn.addEventListener("click", () => {
+      setTimeout(initIpadMode, 60);
+    });
+  }
+});

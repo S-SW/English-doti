@@ -955,3 +955,216 @@ button:disabled {
   border-color: rgba(255, 255, 255, 0.12);
   color: #ecf0f1;
 }
+
+/* ==========================================
+   📱 iPad 模式：全屏大字触摸刷题
+   ========================================== */
+#ipadTab.active {
+  display: flex !important;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.ipad-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.ipad-empty-inner {
+  text-align: center;
+  max-width: 520px;
+  background: var(--card-bg);
+  border: 1px dashed var(--border);
+  border-radius: 16px;
+  padding: 40px 28px;
+}
+.ipad-empty-emoji {
+  font-size: 64px;
+  margin-bottom: 16px;
+}
+.ipad-empty-text {
+  font-size: 18px;
+  line-height: 1.7;
+  color: var(--text-muted);
+}
+
+.ipad-stage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  padding: 12px 220px 16px 220px;
+  gap: 10px;
+  position: relative;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+
+.ipad-topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 4px;
+}
+.ipad-counter {
+  font-size: 16px;
+  color: var(--text-muted);
+  font-weight: 600;
+  letter-spacing: 1px;
+}
+.ipad-icon-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  font-size: 24px;
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.2s ease;
+}
+.ipad-icon-btn:active {
+  transform: scale(0.92);
+  background: var(--opt-btn-hover);
+}
+
+.ipad-word-area {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+}
+.ipad-word {
+  font-size: clamp(36px, 7vw, 72px);
+  font-weight: 800;
+  text-align: center;
+  color: var(--text);
+  line-height: 1.15;
+  word-break: break-word;
+  padding: 0 12px;
+}
+
+.ipad-answer-box {
+  text-align: center;
+  padding: 8px 16px;
+  animation: ipadFadeIn 0.25s ease;
+}
+.ipad-answer {
+  font-size: clamp(28px, 5vw, 48px);
+  font-weight: 700;
+  color: var(--success-text);
+  line-height: 1.3;
+}
+
+.ipad-action-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  padding: 10px 0 6px 0;
+}
+
+.ipad-reveal-btn {
+  min-width: 280px;
+  min-height: 72px;
+  padding: 14px 36px;
+  font-size: 24px;
+  font-weight: 600;
+  border-radius: 18px;
+  background: rgba(52, 152, 219, 0.12);
+  color: var(--primary);
+  border: 2px solid var(--primary);
+  cursor: pointer;
+  transition: transform 0.12s ease, background 0.2s ease;
+}
+.ipad-reveal-btn:active {
+  transform: scale(0.96);
+  background: rgba(52, 152, 219, 0.25);
+}
+
+.ipad-judge-row {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex !important;
+  justify-content: space-between;
+  align-items: stretch;
+  padding: 70px 12px 90px 12px;
+  pointer-events: none;
+  animation: ipadFadeIn 0.25s ease;
+  z-index: 5;
+}
+.ipad-judge {
+  pointer-events: auto;
+  width: 190px;
+  align-self: center;
+  min-height: 220px;
+  padding: 24px 18px;
+  font-size: 34px;
+  font-weight: 800;
+  line-height: 1.25;
+  border-radius: 24px;
+  cursor: pointer;
+  border: 3px solid transparent;
+  transition: transform 0.12s ease, opacity 0.2s ease;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+}
+.ipad-judge:active {
+  transform: scale(0.96);
+}
+.ipad-remember {
+  background: var(--success-bg);
+  color: var(--success-text);
+  border-color: var(--success);
+}
+.ipad-forgot {
+  background: var(--danger-bg);
+  color: var(--danger-text);
+  border-color: var(--danger);
+}
+.ipad-judge.flash-remember {
+  background: var(--success) !important;
+  color: #fff !important;
+}
+.ipad-judge.flash-forgot {
+  background: var(--danger) !important;
+  color: #fff !important;
+}
+
+.ipad-mnemonic {
+  min-height: 0;
+  max-height: 110px;
+  overflow-y: auto;
+  font-size: 13px;
+  line-height: 1.5;
+  opacity: 0.85;
+}
+.ipad-mnemonic:empty {
+  display: none;
+}
+
+@keyframes ipadFadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* iPad 横屏 / 大屏适配 */
+@media (min-width: 1024px) {
+  .ipad-stage {
+    padding: 16px 240px 20px 240px;
+  }
+  .ipad-judge {
+    width: 220px;
+    min-height: 260px;
+    font-size: 38px;
+  }
+}

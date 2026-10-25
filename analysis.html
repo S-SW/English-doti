@@ -26,6 +26,9 @@
             <button class="tab-btn" data-tab="ctphTab">
     ⚠️ 错题排行
   </button>
+            <button class="tab-btn" data-tab="ipadTab" title="全屏大字触摸刷题（iPad 友好）">
+              📱 iPad模式
+            </button>
           </div>
         </div>
         <div class="header-controls">
@@ -361,6 +364,46 @@
         </tbody>
       </table>
     </div>
+  </div>
+</div>
+
+<!-- 4. 📱 iPad 全屏触摸刷题面板 -->
+<div class="tab-content" id="ipadTab">
+  <div id="ipadEmpty" class="ipad-empty">
+    <div class="ipad-empty-inner">
+      <div class="ipad-empty-emoji">📱</div>
+      <div class="ipad-empty-text" id="ipadEmptyText">请先在「今日刷题」页上传题库并完成首轮学习，到期后再来这里触摸复习。</div>
+    </div>
+  </div>
+
+  <div id="ipadStage" class="ipad-stage" style="display:none;">
+    <!-- 顶部极简进度 -->
+    <div class="ipad-topbar">
+      <span id="ipadCounter" class="ipad-counter">0 / 0</span>
+      <button id="ipadReplayBtn" class="ipad-icon-btn" title="重播发音" type="button">🔊</button>
+    </div>
+
+    <!-- 中部：单词巨大显示 -->
+    <div class="ipad-word-area" id="ipadWordArea">
+      <div id="ipadWord" class="ipad-word"></div>
+    </div>
+
+    <!-- 中部：答案揭示区 -->
+    <div id="ipadAnswerBox" class="ipad-answer-box" style="display:none;">
+      <div id="ipadAnswer" class="ipad-answer"></div>
+    </div>
+
+    <!-- 操作区 -->
+    <div class="ipad-action-area">
+      <button id="ipadRevealBtn" class="ipad-reveal-btn" type="button">👁️ 显示释义</button>
+      <div id="ipadJudgeRow" class="ipad-judge-row" style="display:none;">
+        <button id="ipadForgotBtn" class="ipad-judge ipad-forgot" type="button">😭<br>不记得</button>
+        <button id="ipadRememberBtn" class="ipad-judge ipad-remember" type="button">😊<br>记得</button>
+      </div>
+    </div>
+
+    <!-- 底部助记（小、不抢焦点） -->
+    <div id="ipadMnemonic" class="ipad-mnemonic"></div>
   </div>
 </div>
     <script src="mnemonic.js"></script>
