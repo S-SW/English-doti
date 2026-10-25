@@ -997,7 +997,7 @@ button:disabled {
   flex-direction: column;
   height: 100%;
   min-height: 0;
-  padding: 12px 220px 16px 220px;
+  padding: 12px 180px 16px 180px;
   gap: 10px;
   position: relative;
   margin: 0 12px 12px 12px;
@@ -1109,14 +1109,14 @@ button:disabled {
 }
 .ipad-judge {
   pointer-events: auto;
-  width: 190px;
+  width: 140px;
   align-self: center;
-  min-height: 220px;
-  padding: 24px 18px;
-  font-size: 34px;
+  min-height: 140px;
+  padding: 16px 14px;
+  font-size: 22px;
   font-weight: 800;
   line-height: 1.25;
-  border-radius: 24px;
+  border-radius: 18px;
   cursor: pointer;
   border: 3px solid transparent;
   transition: transform 0.12s ease, opacity 0.2s ease;
@@ -1164,11 +1164,11 @@ button:disabled {
 /* iPad 横屏 / 大屏适配 */
 @media (min-width: 1024px) {
   .ipad-stage {
-    padding: 16px 240px 20px 240px;
+    padding: 16px 180px 20px 180px;
   }
   .ipad-judge {
-    width: 220px;
-    min-height: 260px;
-    font-size: 38px;
+    width: 160px;
+    min-height: 160px;
+    font-size: 24px;
   }
 }
