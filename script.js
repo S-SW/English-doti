@@ -2633,8 +2633,8 @@ function ipadLoadQuestion() {
   }
   if (ansBox) ansBox.style.display = "none";
   if (ansText) ansText.innerText = item.answer;
-  if (revealBtn) revealBtn.style.display = "inline-block";
-  if (judgeRow) judgeRow.style.display = "none";
+  if (revealBtn) revealBtn.style.display = "none";
+  if (judgeRow) judgeRow.style.display = "flex";
 
   // 助记
   if (mnemonic) {
@@ -2698,6 +2698,10 @@ function ipadForgot() {
   const btn = document.getElementById("ipadForgotBtn");
   if (btn) btn.classList.add("flash-forgot");
 
+  // 揭示中文释义
+  const ansBox = document.getElementById("ipadAnswerBox");
+  if (ansBox) ansBox.style.display = "block";
+
   item.stage = 0;
   item.errorCount = (item.errorCount || 0) + 1;
   item.nextReviewTime = Date.now() + EBB_INTERVALS[0];
@@ -2709,10 +2713,11 @@ function ipadForgot() {
   saveProgressToLocal();
   if (typeof updateEbbinghausSummary === "function") updateEbbinghausSummary();
 
+  // 留足时间让用户看清中文释义再跳下一题
   setTimeout(() => {
     if (btn) btn.classList.remove("flash-forgot");
     ipadAdvance();
-  }, 900);
+  }, 1800);
 }
 
 // 绑定 iPad 模式按钮事件（只绑一次）
@@ -2746,6 +2751,38 @@ document.addEventListener("DOMContentLoaded", () => {
   if (ipadTabBtn) {
     ipadTabBtn.addEventListener("click", () => {
       setTimeout(initIpadMode, 60);
+    });
+  }
+
+  // 📉 艾宾浩斯页：隐藏/显示底部监控 & 预测面板，让复习区拉伸
+  const ebbToggleMonitorBtn = document.getElementById("ebbToggleMonitorBtn");
+  if (ebbToggleMonitorBtn) {
+    ebbToggleMonitorBtn.addEventListener("click", () => {
+      const bottom = document.getElementById("ebbBottomMonitorGrid");
+      const icon = document.getElementById("ebbToggleMonitorIcon");
+      const text = document.getElementById("ebbToggleMonitorText");
+      const reviewGrid = document.querySelector("#ebbinghausTab .analysis-charts-grid");
+      const actionPanel = document.querySelector("#ebbinghausTab .ebb-action-panel");
+      const rankCard = document.querySelector("#ebbinghausTab .chart-card[style*='min-height: 480px']");
+      if (!bottom) return;
+
+      const hidden = bottom.style.display === "none";
+      if (hidden) {
+        // 恢复显示
+        bottom.style.display = "";
+        if (icon) icon.innerText = "📉";
+        if (text) text.innerText = "隐藏监控";
+        if (reviewGrid) reviewGrid.style.height = "";
+        if (actionPanel) actionPanel.style.minHeight = "480px";
+        if (rankCard) rankCard.style.minHeight = "480px";
+      } else {
+        // 隐藏底部，拉伸主复习区
+        bottom.style.display = "none";
+        if (icon) icon.innerText = "📈";
+        if (text) text.innerText = "显示监控";
+        if (actionPanel) actionPanel.style.minHeight = "calc(100vh - 220px)";
+        if (rankCard) rankCard.style.minHeight = "calc(100vh - 220px)";
+      }
     });
   }
 });

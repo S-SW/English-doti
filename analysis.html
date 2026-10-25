@@ -147,6 +147,13 @@
                   <label style="cursor: pointer;"><input type="radio" name="ebbReviewMode" value="choice"> 📝 四选一</label>
                 </div>
 
+                <!-- 📉 隐藏/显示底部监控面板 -->
+                <button id="ebbToggleMonitorBtn" type="button" title="隐藏/显示底部监控与预测面板"
+                  style="background: transparent; border: 1px solid rgba(255,255,255,0.25); color: inherit; padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 5px;">
+                  <span id="ebbToggleMonitorIcon">📉</span>
+                  <span id="ebbToggleMonitorText">隐藏监控</span>
+                </button>
+
                 <!-- ✨ 单词隐藏/显示 Toggle 开关 (听音模式) -->
                 <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-muted); cursor: pointer; user-select: none;">
                   <input type="checkbox" id="ebbHideWordToggle" style="cursor: pointer;">
@@ -287,7 +294,7 @@
         </div>
 
         <!-- 底部栏：临界遗忘点状态监控 & 预测 -->
-        <div class="analysis-charts-grid" style="margin-top: 20px;">
+        <div class="analysis-charts-grid" id="ebbBottomMonitorGrid" style="margin-top: 20px;">
           <!-- 临界遗忘点状态监控 -->
           <div class="card ebb-timeline-panel">
             <h3>🚨 临界遗忘点状态监控</h3>
